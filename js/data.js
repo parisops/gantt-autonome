@@ -14,9 +14,15 @@ let history = [];
 let historyIndex = -1;
 let suppressHistory = false;
 let leftPanelWidth = 380;
+let selectedColorInModal = '#579bfc';
+
+let hideWeekends = false;
+let hideTreeNames = false;
+let hideBarLabels = false;
 
 const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
 const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
+const COLOR_PALETTE = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#0086c0','#ff642e','#66ccff','#bb3354','#7f5347','#808080'];
 
 function uid(){ return nextId++; }
 
@@ -77,6 +83,16 @@ function getEffectiveRange(id){
   };
 }
 
+function getEffectiveDateField(id, field){
+  const children = tasks.filter(t=>t.parentId===id);
+  if(!children.length){
+    const t = tasks.find(x=>x.id===id);
+    return t ? t[field] : null;
+  }
+  const vals = children.map(c=>getEffectiveDateField(c.id, field)).filter(Boolean).map(d=>d.getTime());
+  return vals.length ? new Date(Math.max(...vals)) : null;
+}
+
 function displayProgressFlat(id){
   const children = tasks.filter(t=>t.parentId===id);
   if(!children.length){
@@ -90,14 +106,24 @@ function displayProgressFlat(id){
 /* ---------- HISTORIQUE (Undo/Redo) ---------- */
 function serialize(){
   return JSON.stringify({
-    tasks: tasks.map(t=>({...t, start:t.start?t.start.getTime():null, end:t.end?t.end.getTime():null})),
+    tasks: tasks.map(t=>({...t,
+      start:t.start?t.start.getTime():null,
+      end:t.end?t.end.getTime():null,
+      baselineEnd:t.baselineEnd?t.baselineEnd.getTime():null,
+      actualEnd:t.actualEnd?t.actualEnd.getTime():null
+    })),
     comments: comments.map(c=>({...c, date:c.date?c.date.getTime():null})),
     nextId
   });
 }
 function deserialize(str){
   const d = JSON.parse(str);
-  tasks = d.tasks.map(t=>({...t, start:t.start?new Date(t.start):null, end:t.end?new Date(t.end):null}));
+  tasks = d.tasks.map(t=>({...t,
+    start:t.start?new Date(t.start):null,
+    end:t.end?new Date(t.end):null,
+    baselineEnd:t.baselineEnd?new Date(t.baselineEnd):null,
+    actualEnd:t.actualEnd?new Date(t.actualEnd):null
+  }));
   comments = d.comments.map(c=>({...c, date:c.date?new Date(c.date):null}));
   nextId = d.nextId;
 }
@@ -137,7 +163,7 @@ document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z'&&e.shiftKey))){ e.preventDefault(); redo(); }
 });
 
-/* ---------- SAUVEGARDE LOCALE ---------- */
+/* ---------- SAUVEGARDE LOCALE (donnees + preferences d'affichage) ---------- */
 function saveLocal(){ try{ localStorage.setItem('ganttAppData', serialize()); }catch(e){} }
 function loadLocal(){
   const raw = localStorage.getItem('ganttAppData');
@@ -145,6 +171,19 @@ function loadLocal(){
     try{ deserialize(raw); history=[raw]; historyIndex=0; return true; }catch(e){ return false; }
   }
   return false;
+}
+function saveDisplaySettings(){
+  try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels})); }catch(e){}
+}
+function loadDisplaySettings(){
+  try{
+    const raw = localStorage.getItem('ganttDisplaySettings');
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    hideWeekends = !!d.hideWeekends;
+    hideTreeNames = !!d.hideTreeNames;
+    hideBarLabels = !!d.hideBarLabels;
+  }catch(e){}
 }
 
 /* ---------- ARBRE / FILTRES ---------- */

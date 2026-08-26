@@ -1,4 +1,4 @@
-/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires */
+/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires, baseline/overrun */
 
 function statusLabel(status){
   if(status === 'À venir') return 'En cours';
@@ -35,7 +35,18 @@ function render(){
   const minDate = addDays(new Date(Math.min(...allDates)), -3);
   const maxDate = addDays(new Date(Math.max(...allDates)), 12);
   const totalDays = Math.max(dayDiff(minDate,maxDate),30);
-  const totalWidth = totalDays*dayWidth;
+
+  /* Table de correspondance jour -> position visible (permet de masquer les weekends sans casser les calculs) */
+  const visibleCum = [0];
+  for(let i=0;i<totalDays;i++){
+    const d = addDays(minDate,i);
+    const isWeekend = d.getDay()===0 || d.getDay()===6;
+    visibleCum.push(visibleCum[i] + ((hideWeekends && isWeekend) ? 0 : 1));
+  }
+  function xForIndex(i){ const idx = Math.max(0, Math.min(totalDays, i)); return visibleCum[idx]*dayWidth; }
+  function xForDate(d){ if(!d) return 0; return xForIndex(dayDiff(minDate, d)); }
+
+  const totalWidth = visibleCum[totalDays]*dayWidth;
   const rowsHeight = flat.length*34;
   const fullWidth = leftPanelWidth + totalWidth;
   const fullHeight = 34 + rowsHeight;
@@ -45,20 +56,23 @@ function render(){
     let cursor = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
     while(cursor < maxDate){
       const next = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1);
-      const w = dayDiff(cursor<minDate?minDate:cursor, next>maxDate?maxDate:next)*dayWidth;
-      headerTimelineInner += `<div class="cell" style="width:${w}px">${cursor.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})}</div>`;
+      const from = cursor<minDate?minDate:cursor, to = next>maxDate?maxDate:next;
+      const w = xForDate(to) - xForDate(from);
+      if(w>0) headerTimelineInner += `<div class="cell" style="width:${w}px">${cursor.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})}</div>`;
       cursor = next;
     }
   } else if(zoom==='week'){
     let cursor = new Date(minDate);
     while(cursor < maxDate){
-      headerTimelineInner += `<div class="cell" style="width:${7*dayWidth}px">Sem. ${getWeekNumber(cursor)}</div>`;
+      const w = xForDate(addDays(cursor,7)) - xForDate(cursor);
+      if(w>0) headerTimelineInner += `<div class="cell" style="width:${w}px">Sem. ${getWeekNumber(cursor)}</div>`;
       cursor = addDays(cursor,7);
     }
   } else {
     let cursor = new Date(minDate);
     while(cursor < maxDate){
-      headerTimelineInner += `<div class="cell" style="width:${dayWidth}px">${cursor.getDate()}</div>`;
+      const isWeekend = cursor.getDay()===0 || cursor.getDay()===6;
+      if(!(hideWeekends && isWeekend)) headerTimelineInner += `<div class="cell" style="width:${dayWidth}px">${cursor.getDate()}</div>`;
       cursor = addDays(cursor,1);
     }
   }
@@ -72,11 +86,13 @@ function render(){
   for(let i=0;i<totalDays;i++){
     const d = addDays(minDate,i);
     const isWeekend = d.getDay()===0 || d.getDay()===6;
-    gridInner += `<div class="grid-col ${isWeekend?'weekend':''}" style="left:${i*dayWidth}px;width:${dayWidth}px;height:${rowsHeight}px;"></div>`;
+    if(hideWeekends && isWeekend) continue;
+    gridInner += `<div class="grid-col ${isWeekend?'weekend':''}" style="left:${xForIndex(i)}px;width:${dayWidth}px;height:${rowsHeight}px;"></div>`;
   }
-  const todayOffset = dayDiff(minDate, new Date());
-  if(todayOffset>=0 && todayOffset<=totalDays){
-    gridInner += `<div class="today-line" style="left:${todayOffset*dayWidth}px;height:${rowsHeight}px;"></div><div class="today-flag" style="left:${todayOffset*dayWidth}px;">Aujourd'hui</div>`;
+  const today = new Date();
+  const todayX = xForDate(today);
+  if(todayX>=0 && todayX<=totalWidth){
+    gridInner += `<div class="today-line" style="left:${todayX}px;height:${rowsHeight}px;"></div><div class="today-flag" style="left:${todayX}px;">Aujourd'hui</div>`;
   }
   const bgGridHtml = `<div class="bg-grid" style="left:${leftPanelWidth}px;width:${totalWidth}px;height:${rowsHeight}px;">${gridInner}</div>`;
 
@@ -93,8 +109,8 @@ function render(){
 
     let barLeft=0, barWidth=dayWidth*3;
     if(eff.start && eff.end){
-      barLeft = dayDiff(minDate,eff.start)*dayWidth;
-      barWidth = Math.max(dayDiff(eff.start,eff.end)*dayWidth, 6);
+      barLeft = xForDate(eff.start);
+      barWidth = Math.max(xForDate(eff.end) - barLeft, 6);
     }
     rects[t.id] = {left:barLeft, width:barWidth, top:idx*34, milestone: t.milestone};
 
@@ -118,15 +134,28 @@ function render(){
       </div>
     </div>`;
 
+    const effBaselineEnd = isParent ? getEffectiveDateField(t.id, 'baselineEnd') : t.baselineEnd;
+    let overrunHtml = '';
+    if(!t.milestone && effBaselineEnd && eff.end && eff.end.getTime() > effBaselineEnd.getTime()){
+      const baselineX = xForDate(effBaselineEnd);
+      const stripeLeft = Math.max(0, baselineX - barLeft);
+      const stripeWidth = Math.max(0, (barLeft+barWidth) - Math.max(baselineX, barLeft));
+      if(stripeWidth>0){
+        const lateDays = dayDiff(effBaselineEnd, eff.end);
+        overrunHtml = `<div class="overrun-stripe" style="left:${stripeLeft}px;width:${stripeWidth}px;" title="Échéance initiale dépassée de ${lateDays} jour(s) (prévue le ${fmt(effBaselineEnd)})"></div>`;
+      }
+    }
+
     let timelineCellInner = '';
     if(t.milestone){
       timelineCellInner = `<div class="milestone" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}"></div>`;
     } else if(isParent){
-      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}%"></div>`;
+      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}%">${overrunHtml}</div>`;
     } else {
       timelineCellInner = `<div class="bar" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};">
           <div class="bar-progress" style="width:${prog}%;"></div>
           <span class="bar-label">${escapeHtml(t.name)} · ${prog}%</span>
+          ${overrunHtml}
           <div class="resize-handle left" data-id="${t.id}" data-edge="left"></div>
           <div class="resize-handle right" data-id="${t.id}" data-edge="right"></div>
         </div>`;
@@ -134,7 +163,7 @@ function render(){
 
     commentList.forEach(c=>{
       if(!c.date) return;
-      const cx = dayDiff(minDate, c.date)*dayWidth;
+      const cx = xForDate(c.date);
       const tipHtml = `<div class="meta">${escapeHtml(c.author||'Anonyme')} · ${fmt(c.date)}</div>${escapeHtml(c.text)}`;
       timelineCellInner += `<div class="comment-marker" data-id="${t.id}" data-tooltip="${escapeHtml(tipHtml).replace(/"/g,'&quot;')}" style="left:${cx}px;"></div>`;
     });
@@ -160,7 +189,8 @@ function render(){
 
   const rowsWrapperHtml = `<div class="rows-wrapper" style="width:${fullWidth}px;height:${rowsHeight}px;">${bgGridHtml}${rowsHtml}${svgHtml}</div>`;
 
-  container.innerHTML = `<div class="gantt-scroll" id="ganttScroll">
+  const scrollClasses = ['gantt-scroll', hideTreeNames?'hide-names':'', hideBarLabels?'hide-bar-labels':''].filter(Boolean).join(' ');
+  container.innerHTML = `<div class="${scrollClasses}" id="ganttScroll">
     <div class="gantt-inner" id="ganttInner" style="width:${fullWidth}px;height:${fullHeight}px;">
       ${headerRowHtml}
       ${rowsWrapperHtml}
