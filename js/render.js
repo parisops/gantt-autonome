@@ -1,4 +1,4 @@
-/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires, baseline/overrun */
+/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires, baseline/overrun, chemin critique */
 
 function statusLabel(status){
   if(status === 'À venir') return 'En cours';
@@ -12,11 +12,22 @@ function render(){
   ownerSel.innerHTML = '<option value="">Tous les responsables</option>' + owners.map(o=>`<option value="${escapeHtml(o)}" ${filterOwner===o?'selected':''}>${escapeHtml(o)}</option>`).join('');
 
   const container = document.getElementById('mainContainer');
+  const cpInfo = document.getElementById('cpInfo');
   if(tasks.length===0){
     container.innerHTML = '<div class="empty-state"><div class="drop-zone" id="dropZone"><h2>Aucune donnée chargée</h2><p>Importez votre fichier Excel, téléchargez le modèle, ou créez une nouvelle tâche.</p></div></div>';
     setupDropZone();
+    cpInfo.style.display = 'none';
     return;
   }
+
+  const cp = showCriticalPath ? computeCriticalPath() : null;
+  if(cp && cpInfo){
+    cpInfo.style.display = 'inline-block';
+    cpInfo.textContent = `🎯 Chemin critique : ${cp.totalDays} j · ${cp.count} tâche(s)`;
+  } else if(cpInfo){
+    cpInfo.style.display = 'none';
+  }
+
   const roots = buildTree();
   const flat = [];
   const hasActiveFilter = filterText || filterStatus || filterOwner;
@@ -106,6 +117,8 @@ function render(){
     const commentList = comments.filter(c=>c.taskId===t.id);
     const isCollapsed = collapsed.has(t.id);
     const lc = levelClass(t.level);
+    const isCritical = !!(cp && !isParent && cp.criticalIds.has(t.id));
+    const isConflict = !!(cp && !isParent && cp.conflictIds.has(t.id));
 
     let barLeft=0, barWidth=dayWidth*3;
     if(eff.start && eff.end){
@@ -119,12 +132,12 @@ function render(){
       treeLines += `<span class="tree-line" style="left:${l*12-6}px;"></span>`;
     }
 
-    const taskRowHtml = `<div class="task-row ${lc} ${t.id===selectedTaskId?'selected':''} ${t.milestone?'milestone-row':''}" data-id="${t.id}" style="width:${leftPanelWidth}px;border-left-color:${t.color};">
+    const taskRowHtml = `<div class="task-row ${lc} ${t.id===selectedTaskId?'selected':''} ${t.milestone?'milestone-row':''} ${isCritical?'critical-row':''}" data-id="${t.id}" style="width:${leftPanelWidth}px;border-left-color:${isCritical?'#e2445c':t.color};">
       <div class="expand-btn" data-id="${t.id}">${isParent?(isCollapsed?'▶':'▼'):''}</div>
       <div class="task-name" style="padding-left:${t.level*12}px;">
         ${treeLines}
         <span class="avatar" style="background:${ownerColor(t.owner)}" title="${escapeHtml(t.owner||'')}">${initials(t.owner)}</span>
-        <span class="name-text" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span>
+        <span class="name-text" title="${escapeHtml(t.name)}">${isCritical?'🎯 ':''}${escapeHtml(t.name)}</span>
       </div>
       <div><span class="status-badge" style="background:${STATUS_COLORS[status]}">${t.milestone?'Jalon':statusLabel(status)}</span></div>
       <div class="row-actions">
@@ -148,13 +161,15 @@ function render(){
 
     let timelineCellInner = '';
     if(t.milestone){
-      timelineCellInner = `<div class="milestone" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}"></div>`;
+      timelineCellInner = `<div class="milestone ${isCritical?'critical':''}" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}${isCritical?' (chemin critique)':''}"></div>`;
     } else if(isParent){
       timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}%">${overrunHtml}</div>`;
     } else {
-      timelineCellInner = `<div class="bar" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};">
+      const critClass = isCritical ? 'critical' : (isConflict ? 'conflict' : '');
+      const critTitle = isCritical ? ' [Chemin critique : aucune marge]' : (isConflict ? ' [Conflit : commence avant la fin d\'une dépendance]' : '');
+      timelineCellInner = `<div class="bar ${critClass}" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};" title="${escapeHtml(t.name)}${critTitle}">
           <div class="bar-progress" style="width:${prog}%;"></div>
-          <span class="bar-label">${escapeHtml(t.name)} · ${prog}%</span>
+          <span class="bar-label">${isCritical?'🎯 ':''}${escapeHtml(t.name)} · ${prog}%</span>
           ${overrunHtml}
           <div class="resize-handle left" data-id="${t.id}" data-edge="left"></div>
           <div class="resize-handle right" data-id="${t.id}" data-edge="right"></div>
@@ -175,6 +190,7 @@ function render(){
 
   let svgHtml = `<svg class="dep-svg" style="left:${leftPanelWidth}px;" width="${totalWidth}" height="${rowsHeight}"><defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#9699a6"/></marker>
+    <marker id="arrow-critical" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e2445c"/></marker>
   </defs>`;
   flat.forEach(t=>{
     (t.deps||[]).forEach(depId=>{
@@ -182,7 +198,11 @@ function render(){
       if(!from || !to) return;
       const x1 = from.left+from.width, y1 = from.top+17, x2 = to.left+(to.milestone?0:0), y2 = to.top+17;
       const midX = x1+12;
-      svgHtml += `<path d="M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}" stroke="#9699a6" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>`;
+      const isCriticalEdge = !!(cp && cp.criticalIds.has(depId) && cp.criticalIds.has(t.id));
+      const isConflictEdge = !!(cp && cp.conflictIds.has(t.id));
+      const cls = isCriticalEdge ? 'critical-edge' : (isConflictEdge ? 'conflict-edge' : '');
+      const marker = isCriticalEdge ? 'arrow-critical' : 'arrow';
+      svgHtml += `<path class="${cls}" d="M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}" stroke="#9699a6" stroke-width="1.5" fill="none" marker-end="url(#${marker})"/>`;
     });
   });
   svgHtml += `</svg>`;

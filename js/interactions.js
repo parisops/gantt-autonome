@@ -29,10 +29,12 @@ const settingsPanel = document.getElementById('settingsPanel');
 const chkHideWeekends = document.getElementById('chkHideWeekends');
 const chkHideNames = document.getElementById('chkHideNames');
 const chkHideBarLabels = document.getElementById('chkHideBarLabels');
+const chkCriticalPath = document.getElementById('chkCriticalPath');
 
 chkHideWeekends.checked = hideWeekends;
 chkHideNames.checked = hideTreeNames;
 chkHideBarLabels.checked = hideBarLabels;
+chkCriticalPath.checked = showCriticalPath;
 
 btnSettings.addEventListener('click', e=>{ e.stopPropagation(); settingsPanel.classList.toggle('open'); });
 document.addEventListener('click', e=>{
@@ -41,6 +43,7 @@ document.addEventListener('click', e=>{
 chkHideWeekends.addEventListener('change', e=>{ hideWeekends = e.target.checked; saveDisplaySettings(); render(); });
 chkHideNames.addEventListener('change', e=>{ hideTreeNames = e.target.checked; saveDisplaySettings(); render(); });
 chkHideBarLabels.addEventListener('change', e=>{ hideBarLabels = e.target.checked; saveDisplaySettings(); render(); });
+chkCriticalPath.addEventListener('change', e=>{ showCriticalPath = e.target.checked; saveDisplaySettings(); render(); });
 
 /* ---------- INFOBULLE GLOBALE (portail) ---------- */
 function showGlobalTooltip(target, html){

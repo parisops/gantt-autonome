@@ -1,4 +1,4 @@
-/* modals.js — Modales d'edition de tache et de commentaires, palette de couleurs, baseline, impression */
+/* modals.js — Modales d'edition de tache et de commentaires, palette de couleurs, baseline, chemin critique, impression */
 
 document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
 
@@ -44,6 +44,25 @@ function openTaskModal(id){
   document.getElementById('m_milestone').disabled = isParent;
   document.getElementById('m_reset_baseline').disabled = isParent;
   document.getElementById('m_auto_note').style.display = isParent ? 'block' : 'none';
+
+  const cpNote = document.getElementById('m_cp_note');
+  if(showCriticalPath && !isParent){
+    const cp = computeCriticalPath();
+    if(cp.criticalIds.has(id)){
+      cpNote.style.display = 'block';
+      cpNote.textContent = '🎯 Cette tâche est sur le chemin critique : tout retard ici retarde directement la fin du projet (marge = 0 jour).';
+    } else if(cp.conflictIds.has(id)){
+      cpNote.style.display = 'block';
+      cpNote.textContent = '⚠️ Conflit détecté : cette tâche démarre avant la fin réelle d\'une de ses dépendances.';
+    } else if(cp.slack[id] !== undefined){
+      cpNote.style.display = 'block';
+      cpNote.textContent = `Marge disponible avant d'impacter le projet : ${cp.slack[id]} jour(s).`;
+    } else {
+      cpNote.style.display = 'none';
+    }
+  } else {
+    cpNote.style.display = 'none';
+  }
 
   const parentSel = document.getElementById('m_parent');
   parentSel.innerHTML = '<option value="">— Aucune (tâche racine) —</option>' +
