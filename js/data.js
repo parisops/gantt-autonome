@@ -1,0 +1,154 @@
+/* data.js — Etat global, modele de donnees, historique (undo/redo), sauvegarde locale */
+
+let tasks = [];
+let comments = [];
+let nextId = 1;
+let zoom = 'week';
+let selectedTaskId = null;
+let activeTaskForComment = null;
+let collapsed = new Set();
+let filterText = '';
+let filterStatus = '';
+let filterOwner = '';
+let history = [];
+let historyIndex = -1;
+let suppressHistory = false;
+let leftPanelWidth = 440;
+
+const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
+const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
+
+function uid(){ return nextId++; }
+
+function toDate(v){
+  if(!v) return null;
+  if(v instanceof Date) return v;
+  if(typeof v === 'number'){ const d = XLSX.SSF.parse_date_code(v); return new Date(d.y, d.m-1, d.d); }
+  const parts = String(v).split(/[\/\-]/);
+  if(parts.length===3){
+    if(parts[0].length===4) return new Date(+parts[0], +parts[1]-1, +parts[2]);
+    return new Date(+parts[2], +parts[1]-1, +parts[0]);
+  }
+  const d = new Date(v); return isNaN(d) ? null : d;
+}
+function fmt(d){ if(!d) return ''; return d.toLocaleDateString('fr-FR'); }
+function toInputDate(d){ if(!d) return ''; return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function dayDiff(a,b){ return Math.round((b-a)/86400000); }
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function levelClass(lvl){ return lvl===0?'lvl-0': lvl===1?'lvl-1': lvl===2?'lvl-2':'lvl-3plus'; }
+
+function computeStatus(t){
+  if(t.progress>=100) return 'Terminé';
+  const today = new Date(); today.setHours(0,0,0,0);
+  if(t.end && today>t.end) return 'En retard';
+  if(t.start && today>=t.start) return 'En cours';
+  return 'À venir';
+}
+function ownerColor(name){
+  if(!name) return '#c4c4c4';
+  let h=0; for(let i=0;i<name.length;i++) h = name.charCodeAt(i)+((h<<5)-h);
+  return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length];
+}
+function initials(name){
+  if(!name) return '?';
+  return name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+}
+
+/* ---------- HISTORIQUE (Undo/Redo) ---------- */
+function serialize(){
+  return JSON.stringify({
+    tasks: tasks.map(t=>({...t, start:t.start?t.start.getTime():null, end:t.end?t.end.getTime():null})),
+    comments: comments.map(c=>({...c, date:c.date?c.date.getTime():null})),
+    nextId
+  });
+}
+function deserialize(str){
+  const d = JSON.parse(str);
+  tasks = d.tasks.map(t=>({...t, start:t.start?new Date(t.start):null, end:t.end?new Date(t.end):null}));
+  comments = d.comments.map(c=>({...c, date:c.date?new Date(c.date):null}));
+  nextId = d.nextId;
+}
+function pushHistory(){
+  if(suppressHistory) return;
+  history = history.slice(0, historyIndex+1);
+  history.push(serialize());
+  if(history.length>60) history.shift();
+  historyIndex = history.length-1;
+  saveLocal();
+  updateUndoRedoButtons();
+}
+function undo(){
+  if(historyIndex<=0) return;
+  historyIndex--;
+  suppressHistory = true;
+  deserialize(history[historyIndex]);
+  suppressHistory = false;
+  render(); saveLocal(); updateUndoRedoButtons();
+}
+function redo(){
+  if(historyIndex>=history.length-1) return;
+  historyIndex++;
+  suppressHistory = true;
+  deserialize(history[historyIndex]);
+  suppressHistory = false;
+  render(); saveLocal(); updateUndoRedoButtons();
+}
+function updateUndoRedoButtons(){
+  document.getElementById('btnUndo').disabled = historyIndex<=0;
+  document.getElementById('btnRedo').disabled = historyIndex>=history.length-1;
+}
+document.getElementById('btnUndo').addEventListener('click', undo);
+document.getElementById('btnRedo').addEventListener('click', redo);
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
+  if((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z'&&e.shiftKey))){ e.preventDefault(); redo(); }
+});
+
+/* ---------- SAUVEGARDE LOCALE ---------- */
+function saveLocal(){ try{ localStorage.setItem('ganttAppData', serialize()); }catch(e){} }
+function loadLocal(){
+  const raw = localStorage.getItem('ganttAppData');
+  if(raw){
+    try{ deserialize(raw); history=[raw]; historyIndex=0; return true; }catch(e){ return false; }
+  }
+  return false;
+}
+
+/* ---------- ARBRE / ROLLUP / FILTRES ---------- */
+function buildTree(){
+  const byId = {}; tasks.forEach(t=> byId[t.id]=Object.assign({children:[], level:0}, t));
+  const roots = [];
+  tasks.forEach(t=>{
+    if(t.parentId && byId[t.parentId]) byId[t.parentId].children.push(byId[t.id]);
+    else roots.push(byId[t.id]);
+  });
+  function setLevel(node, lvl){ node.level=lvl; node.children.forEach(c=>setLevel(c, lvl+1)); }
+  roots.forEach(r=>setLevel(r,0));
+  return roots;
+}
+function displayProgress(node){
+  if(node.children && node.children.length){
+    const vals = node.children.map(displayProgress);
+    return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  }
+  return node.progress;
+}
+function matchesFilter(node){
+  const status = computeStatus(node);
+  const textOk = !filterText || node.name.toLowerCase().includes(filterText) || (node.owner||'').toLowerCase().includes(filterText);
+  const statusOk = !filterStatus || status===filterStatus;
+  const ownerOk = !filterOwner || node.owner===filterOwner;
+  return textOk && statusOk && ownerOk;
+}
+function subtreeMatches(node){
+  if(matchesFilter(node)) return true;
+  return (node.children||[]).some(subtreeMatches);
+}
+function isDescendant(node, ancestorId){
+  let p = node.parentId;
+  const visited = new Set();
+  while(p){ if(p===ancestorId) return true; if(visited.has(p)) break; visited.add(p); const parent=tasks.find(x=>x.id===p); p = parent? parent.parentId: null; }
+  return false;
+}
