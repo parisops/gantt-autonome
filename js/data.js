@@ -19,6 +19,7 @@ let selectedColorInModal = '#579bfc';
 let hideWeekends = false;
 let hideTreeNames = false;
 let hideBarLabels = false;
+let showCriticalPath = false;
 
 const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
 const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
@@ -172,9 +173,7 @@ function loadLocal(){
   }
   return false;
 }
-function saveDisplaySettings(){
-  try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels})); }catch(e){}
-}
+function saveDisplaySettings(){ try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath})); }catch(e){} }
 function loadDisplaySettings(){
   try{
     const raw = localStorage.getItem('ganttDisplaySettings');
@@ -183,6 +182,7 @@ function loadDisplaySettings(){
     hideWeekends = !!d.hideWeekends;
     hideTreeNames = !!d.hideTreeNames;
     hideBarLabels = !!d.hideBarLabels;
+    showCriticalPath = !!d.showCriticalPath;
   }catch(e){}
 }
 
