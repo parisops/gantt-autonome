@@ -1,4 +1,4 @@
-/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication */
+/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips */
 
 document.getElementById('btnAddTask').addEventListener('click', ()=>{
   const id = uid();
@@ -21,6 +21,21 @@ document.getElementById('btnGoToday').addEventListener('click', ()=>{
   const minDate = addDays(new Date(Math.min(...allDates)), -3);
   gs.scrollLeft = Math.max(dayDiff(minDate,new Date())*dayWidth - 200, 0);
 });
+
+/* ---------- INFOBULLE GLOBALE (portail) ---------- */
+function showGlobalTooltip(target, html){
+  const tip = document.getElementById('globalTooltip');
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  const r = target.getBoundingClientRect();
+  const tipRect = tip.getBoundingClientRect();
+  let left = r.left + r.width/2;
+  left = Math.max(tipRect.width/2 + 6, Math.min(window.innerWidth - tipRect.width/2 - 6, left));
+  tip.style.left = left + 'px';
+  tip.style.top = (r.top - 10) + 'px';
+  tip.style.transform = 'translate(-50%, -100%)';
+}
+function hideGlobalTooltip(){ document.getElementById('globalTooltip').style.display = 'none'; }
 
 /* ---------- EVENEMENTS DES LIGNES ---------- */
 function attachRowEvents(dayWidth, minDate){
@@ -65,6 +80,8 @@ function attachRowEvents(dayWidth, minDate){
   });
   document.querySelectorAll('.comment-marker').forEach(m=>{
     m.addEventListener('click', e=>{ e.stopPropagation(); openCommentModal(Number(m.dataset.id)); });
+    m.addEventListener('mouseenter', ()=> showGlobalTooltip(m, m.dataset.tooltip));
+    m.addEventListener('mouseleave', hideGlobalTooltip);
   });
 
   document.querySelectorAll('.bar').forEach(bar=>{
