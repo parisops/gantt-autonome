@@ -13,7 +13,7 @@ let filterOwner = '';
 let history = [];
 let historyIndex = -1;
 let suppressHistory = false;
-let leftPanelWidth = 440;
+let leftPanelWidth = 380;
 
 const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
 const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
@@ -54,6 +54,37 @@ function ownerColor(name){
 function initials(name){
   if(!name) return '?';
   return name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+}
+
+/* ---------- HIERARCHIE : taches parentes = agregat des enfants ---------- */
+function hasChildren(id){ return tasks.some(t=>t.parentId===id); }
+
+function getEffectiveRange(id){
+  const children = tasks.filter(t=>t.parentId===id);
+  if(!children.length){
+    const t = tasks.find(x=>x.id===id);
+    return { start: t ? t.start : null, end: t ? t.end : null };
+  }
+  let mins=[], maxs=[];
+  children.forEach(c=>{
+    const r = getEffectiveRange(c.id);
+    if(r.start) mins.push(r.start.getTime());
+    if(r.end) maxs.push(r.end.getTime());
+  });
+  return {
+    start: mins.length ? new Date(Math.min(...mins)) : null,
+    end: maxs.length ? new Date(Math.max(...maxs)) : null
+  };
+}
+
+function displayProgressFlat(id){
+  const children = tasks.filter(t=>t.parentId===id);
+  if(!children.length){
+    const t = tasks.find(x=>x.id===id);
+    return t ? t.progress : 0;
+  }
+  const vals = children.map(c=>displayProgressFlat(c.id));
+  return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
 }
 
 /* ---------- HISTORIQUE (Undo/Redo) ---------- */
@@ -116,7 +147,7 @@ function loadLocal(){
   return false;
 }
 
-/* ---------- ARBRE / ROLLUP / FILTRES ---------- */
+/* ---------- ARBRE / FILTRES ---------- */
 function buildTree(){
   const byId = {}; tasks.forEach(t=> byId[t.id]=Object.assign({children:[], level:0}, t));
   const roots = [];
@@ -128,15 +159,9 @@ function buildTree(){
   roots.forEach(r=>setLevel(r,0));
   return roots;
 }
-function displayProgress(node){
-  if(node.children && node.children.length){
-    const vals = node.children.map(displayProgress);
-    return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
-  }
-  return node.progress;
-}
 function matchesFilter(node){
-  const status = computeStatus(node);
+  const eff = getEffectiveRange(node.id);
+  const status = computeStatus({start:eff.start, end:eff.end, progress: hasChildren(node.id)?displayProgressFlat(node.id):node.progress});
   const textOk = !filterText || node.name.toLowerCase().includes(filterText) || (node.owner||'').toLowerCase().includes(filterText);
   const statusOk = !filterStatus || status===filterStatus;
   const ownerOk = !filterOwner || node.owner===filterOwner;
