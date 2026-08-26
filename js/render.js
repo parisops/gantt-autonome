@@ -1,4 +1,4 @@
-/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances */
+/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires */
 
 function render(){
   updateUndoRedoButtons();
@@ -23,14 +23,17 @@ function render(){
   roots.forEach(walk);
 
   const dayWidth = zoom==='day'?36:zoom==='week'?14:5;
-  const allDates = tasks.filter(t=>t.start&&t.end).flatMap(t=>[t.start,t.end]);
+
+  const parentIds = new Set(tasks.filter(t=>t.parentId).map(t=>t.parentId));
+  const leafDates = tasks.filter(t=>!parentIds.has(t.id) && t.start && t.end).flatMap(t=>[t.start,t.end]);
+  const allDates = leafDates.length ? leafDates : tasks.filter(t=>t.start&&t.end).flatMap(t=>[t.start,t.end]);
   const minDate = addDays(new Date(Math.min(...allDates)), -3);
   const maxDate = addDays(new Date(Math.max(...allDates)), 12);
   const totalDays = Math.max(dayDiff(minDate,maxDate),30);
   const totalWidth = totalDays*dayWidth;
-  const rowsHeight = flat.length*44;
+  const rowsHeight = flat.length*34;
   const fullWidth = leftPanelWidth + totalWidth;
-  const fullHeight = 42 + rowsHeight;
+  const fullHeight = 34 + rowsHeight;
 
   let headerTimelineInner = '';
   if(zoom==='month'){
@@ -56,7 +59,7 @@ function render(){
   }
 
   const headerRowHtml = `<div class="header-row" style="width:${fullWidth}px;">
-    <div class="row-header" style="width:${leftPanelWidth}px;"><div></div><div>Nom de la tâche</div><div>Échéance</div><div>Statut</div><div></div></div>
+    <div class="row-header" style="width:${leftPanelWidth}px;"><div></div><div>Nom de la tâche</div><div>Statut</div></div>
     <div class="timeline-header" style="width:${totalWidth}px;">${headerTimelineInner}</div>
   </div>`;
 
@@ -75,38 +78,43 @@ function render(){
   const rects = {};
   let rowsHtml = '';
   flat.forEach((t, idx)=>{
-    const status = computeStatus(t);
-    const commentCount = comments.filter(c=>c.taskId===t.id).length;
-    const hasChildren = t.children.length>0;
+    const isParent = t.children.length>0;
+    const eff = isParent ? getEffectiveRange(t.id) : {start:t.start, end:t.end};
+    const prog = isParent ? displayProgressFlat(t.id) : t.progress;
+    const status = computeStatus({start:eff.start, end:eff.end, progress:prog});
+    const commentList = comments.filter(c=>c.taskId===t.id);
     const isCollapsed = collapsed.has(t.id);
-    const prog = displayProgress(t);
     const lc = levelClass(t.level);
 
     let barLeft=0, barWidth=dayWidth*3;
-    if(t.start && t.end){
-      barLeft = dayDiff(minDate,t.start)*dayWidth;
-      barWidth = Math.max(dayDiff(t.start,t.end)*dayWidth, 6);
+    if(eff.start && eff.end){
+      barLeft = dayDiff(minDate,eff.start)*dayWidth;
+      barWidth = Math.max(dayDiff(eff.start,eff.end)*dayWidth, 6);
     }
-    rects[t.id] = {left:barLeft, width:barWidth, top:idx*44, milestone: t.milestone};
+    rects[t.id] = {left:barLeft, width:barWidth, top:idx*34, milestone: t.milestone};
 
     const taskRowHtml = `<div class="task-row ${lc} ${t.id===selectedTaskId?'selected':''} ${t.milestone?'milestone-row':''}" data-id="${t.id}" style="width:${leftPanelWidth}px;border-left-color:${t.color};">
-      <div class="expand-btn" data-id="${t.id}">${hasChildren?(isCollapsed?'▶':'▼'):''}</div>
-      <div class="task-name" style="padding-left:${t.level*14}px;">
+      <div class="expand-btn" data-id="${t.id}">${isParent?(isCollapsed?'▶':'▼'):''}</div>
+      <div class="task-name" style="padding-left:${t.level*12}px;">
         <span class="avatar" style="background:${ownerColor(t.owner)}" title="${escapeHtml(t.owner||'')}">${initials(t.owner)}</span>
-        <input type="text" value="${escapeHtml(t.name)}" data-field="name" data-id="${t.id}">
+        <span class="name-text" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span>
       </div>
-      <div style="font-size:11px;color:var(--text-light)">${fmt(t.start)} → ${fmt(t.end)}</div>
-      <div><span class="status-badge" style="background:${STATUS_COLORS[status]}">${t.milestone?'Jalon':status+(hasChildren?' ('+prog+'%)':'')}</span></div>
-      <div class="comment-btn" data-id="${t.id}" title="Commentaires">💬${commentCount>0?`<span class="comment-badge">${commentCount}</span>`:''}</div>
+      <div><span class="status-badge" style="background:${STATUS_COLORS[status]}">${t.milestone?'Jalon':status+(isParent?' ('+prog+'%)':'')}</span></div>
       <div class="row-actions">
         <span data-action="add-sub" data-id="${t.id}" title="Ajouter sous-tâche">➕</span>
+        <span data-action="comment" data-id="${t.id}" title="Commentaires" class="${commentList.length?'has-comments':''}">💬</span>
         <span data-action="dup" data-id="${t.id}" title="Dupliquer">⎘</span>
       </div>
     </div>`;
 
     let timelineCellInner = '';
     if(t.milestone){
-      timelineCellInner = `<div class="milestone" data-id="${t.id}" style="left:${barLeft-10}px;background:${t.color};" title="${escapeHtml(t.name)}"></div>`;
+      timelineCellInner = `<div class="milestone" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}"></div>`;
+    } else if(isParent){
+      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};">
+          <div class="bar-progress" style="width:${prog}%;"></div>
+          <span class="bar-label">${escapeHtml(t.name)} · ${prog}%</span>
+        </div>`;
     } else {
       timelineCellInner = `<div class="bar" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};">
           <div class="bar-progress" style="width:${prog}%;"></div>
@@ -115,6 +123,15 @@ function render(){
           <div class="resize-handle right" data-id="${t.id}" data-edge="right"></div>
         </div>`;
     }
+
+    commentList.forEach(c=>{
+      if(!c.date) return;
+      const cx = dayDiff(minDate, c.date)*dayWidth;
+      timelineCellInner += `<div class="comment-marker" data-id="${t.id}" style="left:${cx}px;">
+        <div class="comment-tooltip"><div class="meta">${escapeHtml(c.author||'Anonyme')} · ${fmt(c.date)}</div>${escapeHtml(c.text)}</div>
+      </div>`;
+    });
+
     const timelineCellHtml = `<div class="timeline-row-cell ${lc} ${t.milestone?'milestone-row':''}" style="width:${totalWidth}px;">${timelineCellInner}</div>`;
 
     rowsHtml += `<div class="row" style="width:${fullWidth}px;">${taskRowHtml}${timelineCellHtml}</div>`;
@@ -127,7 +144,7 @@ function render(){
     (t.deps||[]).forEach(depId=>{
       const from = rects[depId], to = rects[t.id];
       if(!from || !to) return;
-      const x1 = from.left+from.width, y1 = from.top+22, x2 = to.left+(to.milestone?0:0), y2 = to.top+22;
+      const x1 = from.left+from.width, y1 = from.top+17, x2 = to.left+(to.milestone?0:0), y2 = to.top+17;
       const midX = x1+12;
       svgHtml += `<path d="M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}" stroke="#9699a6" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>`;
     });
@@ -163,7 +180,7 @@ function attachResizer(){
     if(!dragging) return;
     const rect = scroller.getBoundingClientRect();
     let w = e.clientX - rect.left + scroller.scrollLeft;
-    w = Math.max(220, Math.min(900, w));
+    w = Math.max(180, Math.min(800, w));
     leftPanelWidth = w;
     render();
   });
