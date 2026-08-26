@@ -1,5 +1,10 @@
 /* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires */
 
+function statusLabel(status){
+  if(status === 'À venir') return 'En cours';
+  return status;
+}
+
 function render(){
   updateUndoRedoButtons();
   const ownerSel = document.getElementById('filterOwner');
@@ -93,13 +98,19 @@ function render(){
     }
     rects[t.id] = {left:barLeft, width:barWidth, top:idx*34, milestone: t.milestone};
 
+    let treeLines = '';
+    for(let l=1; l<=t.level; l++){
+      treeLines += `<span class="tree-line" style="left:${l*12-6}px;"></span>`;
+    }
+
     const taskRowHtml = `<div class="task-row ${lc} ${t.id===selectedTaskId?'selected':''} ${t.milestone?'milestone-row':''}" data-id="${t.id}" style="width:${leftPanelWidth}px;border-left-color:${t.color};">
       <div class="expand-btn" data-id="${t.id}">${isParent?(isCollapsed?'▶':'▼'):''}</div>
       <div class="task-name" style="padding-left:${t.level*12}px;">
+        ${treeLines}
         <span class="avatar" style="background:${ownerColor(t.owner)}" title="${escapeHtml(t.owner||'')}">${initials(t.owner)}</span>
         <span class="name-text" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span>
       </div>
-      <div><span class="status-badge" style="background:${STATUS_COLORS[status]}">${t.milestone?'Jalon':status+(isParent?' ('+prog+'%)':'')}</span></div>
+      <div><span class="status-badge" style="background:${STATUS_COLORS[status]}">${t.milestone?'Jalon':statusLabel(status)}</span></div>
       <div class="row-actions">
         <span data-action="add-sub" data-id="${t.id}" title="Ajouter sous-tâche">➕</span>
         <span data-action="comment" data-id="${t.id}" title="Commentaires" class="${commentList.length?'has-comments':''}">💬</span>
@@ -111,10 +122,7 @@ function render(){
     if(t.milestone){
       timelineCellInner = `<div class="milestone" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}"></div>`;
     } else if(isParent){
-      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};">
-          <div class="bar-progress" style="width:${prog}%;"></div>
-          <span class="bar-label">${escapeHtml(t.name)} · ${prog}%</span>
-        </div>`;
+      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}%"></div>`;
     } else {
       timelineCellInner = `<div class="bar" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};">
           <div class="bar-progress" style="width:${prog}%;"></div>
@@ -127,9 +135,8 @@ function render(){
     commentList.forEach(c=>{
       if(!c.date) return;
       const cx = dayDiff(minDate, c.date)*dayWidth;
-      timelineCellInner += `<div class="comment-marker" data-id="${t.id}" style="left:${cx}px;">
-        <div class="comment-tooltip"><div class="meta">${escapeHtml(c.author||'Anonyme')} · ${fmt(c.date)}</div>${escapeHtml(c.text)}</div>
-      </div>`;
+      const tipHtml = `<div class="meta">${escapeHtml(c.author||'Anonyme')} · ${fmt(c.date)}</div>${escapeHtml(c.text)}`;
+      timelineCellInner += `<div class="comment-marker" data-id="${t.id}" data-tooltip="${escapeHtml(tipHtml).replace(/"/g,'&quot;')}" style="left:${cx}px;"></div>`;
     });
 
     const timelineCellHtml = `<div class="timeline-row-cell ${lc} ${t.milestone?'milestone-row':''}" style="width:${totalWidth}px;">${timelineCellInner}</div>`;
