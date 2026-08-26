@@ -12,7 +12,7 @@ document.getElementById('searchInput').addEventListener('input', e=>{ filterText
 document.getElementById('filterStatus').addEventListener('change', e=>{ filterStatus = e.target.value; render(); });
 document.getElementById('filterOwner').addEventListener('change', e=>{ filterOwner = e.target.value; render(); });
 document.getElementById('btnExpandAll').addEventListener('click', ()=>{ collapsed.clear(); render(); });
-document.getElementById('btnCollapseAll').addEventListener('click', ()=>{ tasks.forEach(t=>{ if(tasks.some(x=>x.parentId===t.id)) collapsed.add(t.id); }); render(); });
+document.getElementById('btnCollapseAll').addEventListener('click', ()=>{ tasks.forEach(t=>{ if(hasChildren(t.id)) collapsed.add(t.id); }); render(); });
 document.getElementById('btnGoToday').addEventListener('click', ()=>{
   const gs = document.getElementById('ganttScroll'); if(!gs) return;
   const dayWidth = zoom==='day'?36:zoom==='week'?14:5;
@@ -24,13 +24,6 @@ document.getElementById('btnGoToday').addEventListener('click', ()=>{
 
 /* ---------- EVENEMENTS DES LIGNES ---------- */
 function attachRowEvents(dayWidth, minDate){
-  document.querySelectorAll('.task-name input').forEach(inp=>{
-    inp.addEventListener('change', e=>{
-      const id = Number(e.target.dataset.id);
-      tasks.find(x=>x.id===id).name = e.target.value;
-      pushHistory(); render();
-    });
-  });
   document.querySelectorAll('.expand-btn').forEach(btn=>{
     btn.addEventListener('click', e=>{
       const id = Number(e.target.dataset.id);
@@ -40,7 +33,7 @@ function attachRowEvents(dayWidth, minDate){
   });
   document.querySelectorAll('.task-row').forEach(row=>{
     row.addEventListener('dblclick', e=>{
-      if(e.target.tagName==='INPUT' || e.target.dataset.action) return;
+      if(e.target.dataset.action) return;
       openTaskModal(Number(row.dataset.id));
     });
   });
@@ -50,7 +43,7 @@ function attachRowEvents(dayWidth, minDate){
       const parentId = Number(el.dataset.id);
       const parent = tasks.find(x=>x.id===parentId);
       const id = uid();
-      tasks.push({id, parentId, name:'Nouvelle sous-tâche', start:new Date(parent.start), end:addDays(new Date(parent.start),3), progress:0, owner:parent.owner, color:parent.color, milestone:false, deps:[]});
+      tasks.push({id, parentId, name:'Nouvelle sous-tâche', start:new Date(parent.start||new Date()), end:addDays(new Date(parent.start||new Date()),3), progress:0, owner:parent.owner, color:parent.color, milestone:false, deps:[]});
       collapsed.delete(parentId);
       pushHistory(); render(); openTaskModal(id);
     });
@@ -61,16 +54,26 @@ function attachRowEvents(dayWidth, minDate){
       duplicateTask(Number(el.dataset.id));
     });
   });
-  document.querySelectorAll('.comment-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> openCommentModal(Number(btn.dataset.id)));
+  document.querySelectorAll('[data-action="comment"]').forEach(el=>{
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      openCommentModal(Number(el.dataset.id));
+    });
   });
   document.querySelectorAll('.milestone').forEach(m=>{
     m.addEventListener('click', ()=> openTaskModal(Number(m.dataset.id)));
   });
+  document.querySelectorAll('.comment-marker').forEach(m=>{
+    m.addEventListener('click', e=>{ e.stopPropagation(); openCommentModal(Number(m.dataset.id)); });
+  });
 
   document.querySelectorAll('.bar').forEach(bar=>{
-    let dragging=false, dragMode='move', startX=0, origStart=null, origEnd=null, moved=false;
     const id = Number(bar.dataset.id);
+    if(hasChildren(id)){
+      bar.addEventListener('click', ()=> openTaskModal(id));
+      return;
+    }
+    let dragging=false, dragMode='move', startX=0, origStart=null, origEnd=null, moved=false;
     bar.addEventListener('mousedown', e=>{
       if(e.target.classList.contains('resize-handle')) return;
       dragging=true; moved=false; dragMode='move'; startX=e.clientX;
