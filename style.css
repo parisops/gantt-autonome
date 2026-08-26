@@ -1,7 +1,20 @@
 
+/*
+  ECHELLE Z-INDEX (de bas en haut) :
+  0  bg-grid (grille jours/weekend, ligne "aujourd'hui")
+  1  timeline-row-cell (fond de ligne dans la timeline)
+  2  dep-svg (fleches de dependance)
+  3  bar / milestone / comment-marker (elements interactifs sur la timeline)
+  4  row-actions (icones au survol, dans la colonne figee)
+  5  task-row (colonne de gauche figee horizontalement)
+  10 resizer (poignee de redimensionnement)
+  20 header-row / timeline-header (en-tete fige verticalement)
+  21 row-header (coin fige haut+gauche)
+  9999 global-tooltip (infobulle en portail, toujours au-dessus de tout)
+*/
 :root{
   --purple:#4b3df0; --purple-light:#eef0ff;
-  --green:#00c875; --blue:#579bfc; --orange:#fdab3d; --red:#e2445c; --gray:#c4c4c4;
+  --green:#00c875; --blue:#579bfc; --orange:#fdab3d; --red:#e2445c; --gray:#8b8f99;
   --bg:#f4f5f8; --panel:#ffffff; --border:#e3e5ea; --text:#22242a; --text-light:#6b6f7b;
   --radius:6px;
   --header-h:34px; --row-h:34px;
@@ -39,9 +52,9 @@ select, .zoom-select, input[type=text].filter-input{border:1px solid var(--borde
 .grid-col.weekend{background:rgba(0,0,0,.025);}
 .today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:2;}
 .today-flag{position:absolute;top:1px;background:var(--red);color:#fff;font-size:9px;padding:1px 5px;border-radius:4px;transform:translateX(-50%);z-index:2;white-space:nowrap;}
-.dep-svg{position:absolute;top:0;z-index:1;pointer-events:none;}
+.dep-svg{position:absolute;top:0;z-index:2;pointer-events:none;}
 
-.row-header, .task-row{display:grid;grid-template-columns:16px 1fr 62px;gap:6px;align-items:center;padding:0 8px;flex-shrink:0;}
+.row-header, .task-row{display:grid;grid-template-columns:16px 1fr 76px;gap:6px;align-items:center;padding:0 8px;flex-shrink:0;}
 .row-header{position:sticky;left:0;z-index:21;background:var(--panel);height:var(--header-h);font-size:10.5px;text-transform:uppercase;color:var(--text-light);font-weight:700;border-right:1px solid var(--border);}
 .task-row{position:sticky;left:0;z-index:5;height:var(--row-h);font-size:12.5px;border-left:3px solid transparent;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
 .task-row.lvl-0{background:var(--lvl0-solid);}
@@ -58,19 +71,20 @@ select, .zoom-select, input[type=text].filter-input{border:1px solid var(--borde
 .timeline-row-cell.lvl-2, .timeline-row-cell.lvl-3plus{background:var(--lvl2-soft);}
 .timeline-row-cell.milestone-row{background:rgba(253,171,61,.08);}
 
-.expand-btn{cursor:pointer;width:14px;text-align:center;color:var(--text);user-select:none;font-size:12px;font-weight:700;line-height:1;}
-.task-name{display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;}
+.expand-btn{cursor:pointer;width:14px;text-align:center;color:var(--text-light);user-select:none;font-size:11px;font-weight:600;line-height:1;}
+.tree-line{position:absolute;top:0;bottom:0;width:1px;background:var(--border);}
+.task-name{display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;position:relative;}
 .avatar{width:17px;height:17px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;}
-.task-name .name-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.task-row.lvl-0 .task-name .name-text{font-size:13.5px;font-weight:800;color:#101115;}
-.task-row.lvl-1 .task-name .name-text{font-size:13px;font-weight:700;color:#1b1c20;}
-.task-row.lvl-2 .task-name .name-text, .task-row.lvl-3plus .task-name .name-text{font-size:12.5px;font-weight:600;color:var(--text);}
-.status-badge{font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:5px;color:#fff;text-align:center;white-space:nowrap;}
+.task-name .name-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--text);}
+.task-row.lvl-0 .task-name .name-text{font-size:13.5px;color:#101115;}
+.task-row.lvl-1 .task-name .name-text{font-size:13px;}
+.task-row.lvl-2 .task-name .name-text, .task-row.lvl-3plus .task-name .name-text{font-size:12.5px;color:var(--text-light);}
+.status-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block;max-width:100%;}
 .row-actions{position:absolute;top:50%;right:6px;transform:translateY(-50%);opacity:0;transition:.15s;display:flex;gap:3px;z-index:4;}
 .task-row:hover .row-actions{opacity:1;}
 .row-actions span{cursor:pointer;font-size:13px;color:var(--text-light);width:22px;height:22px;border-radius:5px;background:#e9eaf0;box-shadow:0 1px 2px rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;}
 .row-actions span:hover{color:var(--purple);background:#dcdfff;}
-.row-actions span.has-comments{color:var(--purple);}
+.row-actions span.has-comments{color:var(--orange);}
 
 .bar{position:absolute;top:5px;height:24px;border-radius:5px;display:flex;align-items:center;color:#fff;font-size:10.5px;font-weight:600;padding:0 7px;cursor:grab;overflow:hidden;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.15);user-select:none;z-index:3;}
 .bar:active{cursor:grabbing;}
@@ -79,18 +93,31 @@ select, .zoom-select, input[type=text].filter-input{border:1px solid var(--borde
 .resize-handle{position:absolute;top:0;bottom:0;width:6px;cursor:ew-resize;z-index:3;}
 .resize-handle.left{left:0;}
 .resize-handle.right{right:0;}
-.bar.bar-summary{top:11px;height:12px;cursor:default;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.5);}
-.bar.bar-summary .bar-progress{opacity:.6;}
-.bar.bar-summary .bar-label{font-size:9.5px;}
+
+/* Barre "resume" pour taches parentes : bracket avec pointes, convention standard des outils Gantt (MS Project, etc.) */
+.bar-summary{
+  top:14px; height:7px; padding:0; box-shadow:none; cursor:default;
+  border-radius:1px; background:var(--bar-color, #4a4d57) !important;
+}
+.bar-summary .bar-progress{background:rgba(255,255,255,.45);}
+.bar-summary::before, .bar-summary::after{
+  content:''; position:absolute; top:100%; width:0; height:0;
+  border-left:5px solid transparent; border-right:5px solid transparent;
+  border-top:6px solid var(--bar-color, #4a4d57);
+}
+.bar-summary::before{ left:-1px; }
+.bar-summary::after{ right:-1px; }
+
 .milestone{position:absolute;top:9px;width:14px;height:14px;transform:rotate(45deg);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.2);z-index:3;}
 
-.comment-marker{position:absolute;top:1px;width:8px;height:8px;border-radius:50%;background:var(--orange);border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);cursor:pointer;z-index:6;}
-.comment-marker .comment-tooltip{display:none;position:absolute;bottom:13px;left:50%;transform:translateX(-50%);background:#22242a;color:#fff;padding:6px 9px;border-radius:6px;font-size:11px;white-space:normal;width:200px;z-index:60;box-shadow:0 2px 10px rgba(0,0,0,.25);}
-.comment-marker .comment-tooltip .meta{font-size:10px;color:#c7c9d1;margin-bottom:2px;}
-.comment-marker:hover .comment-tooltip{display:block;}
+.comment-marker{position:absolute;top:1px;width:8px;height:8px;border-radius:50%;background:var(--orange);border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);cursor:pointer;z-index:3;}
 
-.resizer{position:absolute;top:0;width:5px;cursor:col-resize;background:var(--border);z-index:22;}
+.resizer{position:absolute;top:0;width:5px;cursor:col-resize;background:var(--border);z-index:10;}
 .resizer:hover, .resizer.active{background:var(--purple);}
+
+/* Infobulle globale en portail (append au body), toujours visible au-dessus des colonnes figees / en-tetes */
+.global-tooltip{display:none;position:fixed;background:#22242a;color:#fff;padding:6px 9px;border-radius:6px;font-size:11px;max-width:220px;z-index:9999;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.3);}
+.global-tooltip .meta{font-size:10px;color:#c7c9d1;margin-bottom:2px;}
 
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
