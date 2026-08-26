@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt Autonome — Suivi de tâches</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><span class="dot"></span> Gantt Autonome</h1>
+  <div class="toolbar">
+    <label class="btn" for="fileInput">📂 Importer Excel</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+    <button id="btnTemplate" class="btn-ghost">⬇️ Modèle vierge</button>
+    <button id="btnAddTask" class="btn-ghost">➕ Nouvelle tâche</button>
+    <button id="btnUndo" class="btn-icon" title="Annuler (Ctrl+Z)">↩️</button>
+    <button id="btnRedo" class="btn-icon" title="Rétablir (Ctrl+Y)">↪️</button>
+    <button id="btnPrint" class="btn-ghost" title="Imprimer / PDF">🖨️ Imprimer</button>
+    <select id="zoomSelect">
+      <option value="day">Jour</option>
+      <option value="week" selected>Semaine</option>
+      <option value="month">Mois</option>
+    </select>
+    <button id="btnExport" class="btn-primary">💾 Exporter Excel</button>
+  </div>
+</div>
+<div class="filterbar">
+  <input type="text" id="searchInput" placeholder="🔍 Rechercher une tâche ou un responsable...">
+  <select id="filterStatus">
+    <option value="">Tous les statuts</option>
+    <option value="À venir">À venir</option>
+    <option value="En cours">En cours</option>
+    <option value="Terminé">Terminé</option>
+    <option value="En retard">En retard</option>
+  </select>
+  <select id="filterOwner"><option value="">Tous les responsables</option></select>
+  <button id="btnExpandAll" class="btn-ghost">⤢ Tout déplier</button>
+  <button id="btnCollapseAll" class="btn-ghost">⤡ Tout replier</button>
+  <button id="btnGoToday" class="btn-ghost">📍 Aujourd'hui</button>
+</div>
+<div class="legend" id="legend">
+  <div class="item"><span class="sw" style="background:var(--gray)"></span> À venir</div>
+  <div class="item"><span class="sw" style="background:var(--blue)"></span> En cours</div>
+  <div class="item"><span class="sw" style="background:var(--green)"></span> Terminé</div>
+  <div class="item"><span class="sw" style="background:var(--red)"></span> En retard</div>
+  <div class="item">◆ Jalon</div>
+  <div class="item">→ Dépendance</div>
+  <div class="item"><span class="sw" style="background:var(--lvl0-solid);border:1px solid #ccc;"></span> Niveau 1</div>
+  <div class="item"><span class="sw" style="background:var(--lvl1-solid);border:1px solid #ccc;"></span> Niveau 2</div>
+  <div class="item"><span class="sw" style="background:var(--lvl2-solid);border:1px solid #ccc;"></span> Niveau 3+</div>
+</div>
+
+<div id="mainContainer">
+  <div class="empty-state" id="emptyState">
+    <div class="drop-zone" id="dropZone">
+      <h2>Aucune donnée chargée</h2>
+      <p>Importez votre fichier Excel (.xlsx) contenant les onglets <b>Taches</b> et <b>Commentaires</b>, téléchargez le modèle vierge, ou créez une nouvelle tâche.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="taskModal">
+  <div class="modal">
+    <h2 id="m_title">Éditer la tâche</h2>
+    <div class="field"><label>Nom</label><input type="text" id="m_name"></div>
+    <div class="field"><label>Tâche parente</label><select id="m_parent"></select></div>
+    <div class="field-row">
+      <div class="field"><label>Date début</label><input type="date" id="m_start"></div>
+      <div class="field"><label>Date fin</label><input type="date" id="m_end"></div>
+    </div>
+    <div class="field"><label>Jalon (durée nulle, affiché en losange)</label><select id="m_milestone"><option value="0">Non</option><option value="1">Oui</option></select></div>
+    <div class="field-row">
+      <div class="field"><label>Avancement (%)</label><input type="number" id="m_progress" min="0" max="100"></div>
+      <div class="field"><label>Responsable</label><input type="text" id="m_owner"></div>
+    </div>
+    <div class="field"><label>Dépendances (ID des tâches précédentes, séparés par virgule)</label><input type="text" id="m_deps" placeholder="ex: 2,3"></div>
+    <div class="field"><label>Couleur</label>
+      <select id="m_color">
+        <option value="#579bfc">Bleu</option>
+        <option value="#00c875">Vert</option>
+        <option value="#fdab3d">Orange</option>
+        <option value="#e2445c">Rouge</option>
+        <option value="#a25ddc">Violet</option>
+        <option value="#037f4c">Vert foncé</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="m_duplicate">⎘ Dupliquer</button>
+      <button class="btn-ghost" id="m_delete" style="color:var(--red);">🗑 Supprimer</button>
+      <button class="btn-ghost" onclick="closeModal('taskModal')">Annuler</button>
+      <button class="btn-primary" id="m_save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="commentModal">
+  <div class="modal">
+    <h2 id="c_title">Commentaires</h2>
+    <div id="c_list"></div>
+    <div class="field" style="margin-top:12px;"><label>Auteur</label><input type="text" id="c_author" placeholder="Votre nom"></div>
+    <div class="field"><label>Nouveau commentaire</label><textarea id="c_text" placeholder="Écrire un commentaire..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('commentModal')">Fermer</button>
+      <button class="btn-primary" id="c_add">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/data.js"></script>
+<script src="js/excel-io.js"></script>
+<script src="js/render.js"></script>
+<script src="js/interactions.js"></script>
+<script src="js/modals.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
