@@ -48,6 +48,7 @@
   <div class="item"><span class="sw" style="background:var(--red)"></span> En retard</div>
   <div class="item">◆ Jalon</div>
   <div class="item">→ Dépendance</div>
+  <div class="item">🟠 Commentaire (survol)</div>
   <div class="item"><span class="sw" style="background:var(--lvl0-solid);border:1px solid #ccc;"></span> Niveau 1</div>
   <div class="item"><span class="sw" style="background:var(--lvl1-solid);border:1px solid #ccc;"></span> Niveau 2</div>
   <div class="item"><span class="sw" style="background:var(--lvl2-solid);border:1px solid #ccc;"></span> Niveau 3+</div>
@@ -71,6 +72,7 @@
       <div class="field"><label>Date début</label><input type="date" id="m_start"></div>
       <div class="field"><label>Date fin</label><input type="date" id="m_end"></div>
     </div>
+    <p class="auto-note" id="m_auto_note" style="display:none;">Cette tâche a des sous-tâches : ses dates et son avancement sont calculés automatiquement à partir d'elles (dates min/max, moyenne d'avancement). Éditez les sous-tâches pour les modifier.</p>
     <div class="field"><label>Jalon (durée nulle, affiché en losange)</label><select id="m_milestone"><option value="0">Non</option><option value="1">Oui</option></select></div>
     <div class="field-row">
       <div class="field"><label>Avancement (%)</label><input type="number" id="m_progress" min="0" max="100"></div>

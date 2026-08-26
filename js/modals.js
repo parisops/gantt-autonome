@@ -5,15 +5,26 @@ document.getElementById('btnPrint').addEventListener('click', ()=>window.print()
 function openTaskModal(id){
   selectedTaskId = id;
   const t = tasks.find(x=>x.id===id);
+  const isParent = hasChildren(id);
+  const eff = isParent ? getEffectiveRange(id) : {start:t.start, end:t.end};
+  const prog = isParent ? displayProgressFlat(id) : t.progress;
+
   document.getElementById('m_title').textContent = 'Éditer : ' + t.name;
   document.getElementById('m_name').value = t.name;
-  document.getElementById('m_start').value = toInputDate(t.start);
-  document.getElementById('m_end').value = toInputDate(t.end);
-  document.getElementById('m_progress').value = t.progress;
+  document.getElementById('m_start').value = toInputDate(eff.start);
+  document.getElementById('m_end').value = toInputDate(eff.end);
+  document.getElementById('m_progress').value = prog;
   document.getElementById('m_owner').value = t.owner;
   document.getElementById('m_color').value = t.color;
   document.getElementById('m_milestone').value = t.milestone? '1':'0';
   document.getElementById('m_deps').value = (t.deps||[]).join(',');
+
+  document.getElementById('m_start').disabled = isParent;
+  document.getElementById('m_end').disabled = isParent;
+  document.getElementById('m_progress').disabled = isParent;
+  document.getElementById('m_milestone').disabled = isParent;
+  document.getElementById('m_auto_note').style.display = isParent ? 'block' : 'none';
+
   const parentSel = document.getElementById('m_parent');
   parentSel.innerHTML = '<option value="">— Aucune (tâche racine) —</option>' +
     tasks.filter(x=>x.id!==id && !isDescendant(x,id)).map(x=>`<option value="${x.id}" ${t.parentId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
@@ -21,16 +32,19 @@ function openTaskModal(id){
 }
 document.getElementById('m_save').addEventListener('click', ()=>{
   const t = tasks.find(x=>x.id===selectedTaskId);
+  const isParent = hasChildren(selectedTaskId);
   t.name = document.getElementById('m_name').value;
   t.parentId = document.getElementById('m_parent').value ? Number(document.getElementById('m_parent').value) : null;
-  t.start = new Date(document.getElementById('m_start').value);
-  t.end = new Date(document.getElementById('m_end').value);
-  t.progress = Number(document.getElementById('m_progress').value);
-  t.owner = document.getElementById('m_owner').value;
   t.color = document.getElementById('m_color').value;
-  t.milestone = document.getElementById('m_milestone').value==='1';
-  if(t.milestone) t.end = new Date(t.start);
+  t.owner = document.getElementById('m_owner').value;
   t.deps = document.getElementById('m_deps').value.split(',').map(x=>Number(x.trim())).filter(Boolean).filter(x=>x!==t.id);
+  if(!isParent){
+    t.start = new Date(document.getElementById('m_start').value);
+    t.end = new Date(document.getElementById('m_end').value);
+    t.progress = Number(document.getElementById('m_progress').value);
+    t.milestone = document.getElementById('m_milestone').value==='1';
+    if(t.milestone) t.end = new Date(t.start);
+  }
   pushHistory(); closeModal('taskModal'); render();
 });
 document.getElementById('m_delete').addEventListener('click', ()=>{
@@ -55,7 +69,7 @@ function renderComments(){
   const list = comments.filter(c=>c.taskId===activeTaskForComment);
   document.getElementById('c_list').innerHTML = list.length ? list.map(c=>`
     <div class="comment-item"><div class="meta">${escapeHtml(c.author||'Anonyme')} · ${fmt(c.date)}</div><div class="txt">${escapeHtml(c.text)}</div></div>
-  `).join('') : '<p style="color:var(--text-light);font-size:13px;">Aucun commentaire pour cette tâche.</p>';
+  `).join('') : '<p style="color:var(--text-light);font-size:12.5px;">Aucun commentaire pour cette tâche.</p>';
 }
 document.getElementById('c_add').addEventListener('click', ()=>{
   const text = document.getElementById('c_text').value.trim();

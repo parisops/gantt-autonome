@@ -57,7 +57,16 @@ document.getElementById('btnTemplate').addEventListener('click', ()=>{
 
 document.getElementById('btnExport').addEventListener('click', ()=>{
   const wb = XLSX.utils.book_new();
-  const tRows = tasks.map(t=>({ID:t.id, ParentID:t.parentId||'', Nom:t.name, DateDebut:t.start, DateFin:t.end, Avancement:t.progress, Responsable:t.owner, Statut:computeStatus(t), Couleur:t.color, Jalon:t.milestone?1:0, Predecesseurs:(t.deps||[]).join(',')}));
+  const tRows = tasks.map(t=>{
+    const isParent = hasChildren(t.id);
+    const eff = isParent ? getEffectiveRange(t.id) : {start:t.start, end:t.end};
+    const prog = isParent ? displayProgressFlat(t.id) : t.progress;
+    return {
+      ID:t.id, ParentID:t.parentId||'', Nom:t.name, DateDebut:eff.start, DateFin:eff.end,
+      Avancement:prog, Responsable:t.owner, Statut:computeStatus({start:eff.start,end:eff.end,progress:prog}),
+      Couleur:t.color, Jalon:t.milestone?1:0, Predecesseurs:(t.deps||[]).join(',')
+    };
+  });
   const cRows = comments.map(c=>({ID_Tache:c.taskId, Auteur:c.author, Date:c.date, Commentaire:c.text}));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tRows), 'Taches');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cRows), 'Commentaires');
