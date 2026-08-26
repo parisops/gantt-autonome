@@ -28,8 +28,10 @@
         <label><input type="checkbox" id="chkHideWeekends"> Masquer les weekends</label>
         <label><input type="checkbox" id="chkHideNames"> Masquer les noms dans l'arbo</label>
         <label><input type="checkbox" id="chkHideBarLabels"> Masquer les titres dans la timeline</label>
+        <label><input type="checkbox" id="chkCriticalPath"> 🎯 Afficher le chemin critique</label>
       </div>
     </div>
+    <span id="cpInfo" class="cp-info" style="display:none;"></span>
     <select id="zoomSelect">
       <option value="day">Jour</option>
       <option value="week" selected>Semaine</option>
@@ -61,7 +63,8 @@
   <div class="item">⊏⊐ Phase (agrégat)</div>
   <div class="item">→ Dépendance</div>
   <div class="item">🟠 Commentaire (survol)</div>
-  <div class="item">🟥 Rayures = dépassement de l'échéance initiale</div>
+  <div class="item">🟥 Rayures = dépassement échéance initiale</div>
+  <div class="item">🎯 Contour rouge = chemin critique</div>
 </div>
 
 <div id="mainContainer">
@@ -91,6 +94,7 @@
     </div>
     <button type="button" class="btn-ghost" id="m_reset_baseline" style="font-size:11.5px;padding:5px 9px;margin:-6px 0 10px;">↺ Réinitialiser la baseline sur la date de fin actuelle</button>
     <p class="auto-note" id="m_auto_note" style="display:none;">Cette tâche a des sous-tâches : ses dates et son avancement sont calculés automatiquement à partir d'elles (dates min/max, moyenne d'avancement). Éditez les sous-tâches pour les modifier.</p>
+    <p class="auto-note" id="m_cp_note" style="display:none;"></p>
     <div class="field"><label>Jalon (durée nulle, affiché en losange)</label><select id="m_milestone"><option value="0">Non</option><option value="1">Oui</option></select></div>
     <div class="field-row">
       <div class="field"><label>Avancement (%)</label><input type="number" id="m_progress" min="0" max="100"></div>
@@ -127,6 +131,7 @@
 <div class="global-tooltip" id="globalTooltip"></div>
 
 <script src="js/data.js"></script>
+<script src="js/critical-path.js"></script>
 <script src="js/excel-io.js"></script>
 <script src="js/render.js"></script>
 <script src="js/interactions.js"></script>
