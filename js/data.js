@@ -46,6 +46,20 @@ function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<'
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function levelClass(lvl){ return lvl===0?'lvl-0': lvl===1?'lvl-1': lvl===2?'lvl-2':'lvl-3plus'; }
 
+/* Choisit une couleur de texte (blanc ou sombre) selon la luminosite du fond, pour garantir un contraste suffisant quelle que soit la couleur choisie */
+function getContrastTextColor(hex){
+  if(!hex) return '#ffffff';
+  let h = hex.replace('#','');
+  if(h.length===3) h = h.split('').map(c=>c+c).join('');
+  if(h.length!==6) return '#ffffff';
+  const r = parseInt(h.substr(0,2),16)/255;
+  const g = parseInt(h.substr(2,2),16)/255;
+  const b = parseInt(h.substr(4,2),16)/255;
+  const lin = c => c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4);
+  const L = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);
+  return L > 0.52 ? '#1c1e22' : '#ffffff';
+}
+
 function computeStatus(t){
   if(t.progress>=100) return 'Terminé';
   const today = new Date(); today.setHours(0,0,0,0);

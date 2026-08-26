@@ -5,6 +5,18 @@ function statusLabel(status){
   return status;
 }
 
+function routeDependencyPath(x1,y1,x2,y2){
+  const gap = 10;
+  if(x2 >= x1 + gap*2){
+    const midX = (x1+x2)/2;
+    return `M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}`;
+  }
+  const outX = x1 + gap;
+  const inX = x2 - gap;
+  const midY = (y1+y2)/2;
+  return `M${x1},${y1} L${outX},${y1} L${outX},${midY} L${inX},${midY} L${inX},${y2} L${x2},${y2}`;
+}
+
 function render(){
   updateUndoRedoButtons();
   const ownerSel = document.getElementById('filterOwner');
@@ -181,7 +193,8 @@ function render(){
     } else {
       const critClass = isCritical ? 'critical' : (isConflict ? 'conflict' : '');
       const critTitle = isCritical ? ' [Chemin critique : aucune marge]' : (isConflict ? ' [Conflit : commence avant la fin d\'une dépendance]' : '');
-      timelineCellInner = `<div class="bar ${critClass}" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};" title="${escapeHtml(t.name)}${critTitle}">
+      const textColor = getContrastTextColor(t.color);
+      timelineCellInner = `<div class="bar ${critClass}" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;background:${t.color};color:${textColor};" title="${escapeHtml(t.name)}${critTitle}">
           <div class="bar-progress" style="width:${prog}%;"></div>
           <span class="bar-label">${isCritical?'🎯 ':''}${escapeHtml(t.name)} · ${prog}%</span>
           ${overrunHtml}
@@ -211,12 +224,12 @@ function render(){
       const from = rects[depId], to = rects[t.id];
       if(!from || !to) return;
       const x1 = from.left+from.width, y1 = from.top+17, x2 = to.left+(to.milestone?0:0), y2 = to.top+17;
-      const midX = x1+12;
       const isCriticalEdge = !!(cp && cp.criticalIds.has(depId) && cp.criticalIds.has(t.id));
       const isConflictEdge = !!(cp && cp.conflictIds.has(t.id));
       const cls = isCriticalEdge ? 'critical-edge' : (isConflictEdge ? 'conflict-edge' : '');
       const marker = isCriticalEdge ? 'arrow-critical' : 'arrow';
-      svgHtml += `<path class="${cls}" d="M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}" stroke="#9699a6" stroke-width="1.5" fill="none" marker-end="url(#${marker})"/>`;
+      const d = routeDependencyPath(x1,y1,x2,y2);
+      svgHtml += `<path class="${cls}" d="${d}" stroke="#9699a6" stroke-width="1.5" fill="none" marker-end="url(#${marker})"/>`;
     });
   });
   svgHtml += `</svg>`;
