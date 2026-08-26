@@ -22,9 +22,12 @@ function loadFile(file){
       XLSX.utils.sheet_to_json(shTasks, {defval:''}).forEach(r=>{
         const id = Number(r.ID) || uid();
         nextId = Math.max(nextId, id+1);
+        const end = toDate(r.DateFin);
+        const baselineEnd = r.DateFinInitiale ? toDate(r.DateFinInitiale) : end;
         tasks.push({
           id, parentId: r.ParentID ? Number(r.ParentID) : null,
-          name: r.Nom || 'Sans titre', start: toDate(r.DateDebut), end: toDate(r.DateFin),
+          name: r.Nom || 'Sans titre', start: toDate(r.DateDebut), end,
+          baselineEnd, actualEnd: r.DateFinReelle ? toDate(r.DateFinReelle) : null,
           progress: Number(r.Avancement)||0, owner: r.Responsable || '', color: r.Couleur || '#579bfc',
           milestone: r.Jalon==1||r.Jalon==='1'||r.Jalon===true, deps: r.Predecesseurs? String(r.Predecesseurs).split(',').map(x=>Number(x.trim())).filter(Boolean):[]
         });
@@ -45,9 +48,9 @@ function loadFile(file){
 document.getElementById('btnTemplate').addEventListener('click', ()=>{
   const wb = XLSX.utils.book_new();
   const wsT = XLSX.utils.json_to_sheet([
-    {ID:1, ParentID:'', Nom:'Phase 1 - Cadrage', DateDebut:new Date(), DateFin:addDays(new Date(),5), Avancement:20, Responsable:'Alex', Couleur:'#579bfc', Jalon:0, Predecesseurs:''},
-    {ID:2, ParentID:1, Nom:'Rédaction du cahier des charges', DateDebut:new Date(), DateFin:addDays(new Date(),3), Avancement:50, Responsable:'Alex', Couleur:'#00c875', Jalon:0, Predecesseurs:''},
-    {ID:3, ParentID:1, Nom:'Validation', DateDebut:addDays(new Date(),3), DateFin:addDays(new Date(),3), Avancement:0, Responsable:'Alex', Couleur:'#fdab3d', Jalon:1, Predecesseurs:'2'}
+    {ID:1, ParentID:'', Nom:'Phase 1 - Cadrage', DateDebut:new Date(), DateFin:addDays(new Date(),5), DateFinInitiale:addDays(new Date(),5), DateFinReelle:'', Avancement:20, Responsable:'Alex', Couleur:'#579bfc', Jalon:0, Predecesseurs:''},
+    {ID:2, ParentID:1, Nom:'Rédaction du cahier des charges', DateDebut:new Date(), DateFin:addDays(new Date(),3), DateFinInitiale:addDays(new Date(),2), DateFinReelle:'', Avancement:50, Responsable:'Alex', Couleur:'#00c875', Jalon:0, Predecesseurs:''},
+    {ID:3, ParentID:1, Nom:'Validation', DateDebut:addDays(new Date(),3), DateFin:addDays(new Date(),3), DateFinInitiale:addDays(new Date(),3), DateFinReelle:'', Avancement:0, Responsable:'Alex', Couleur:'#fdab3d', Jalon:1, Predecesseurs:'2'}
   ]);
   const wsC = XLSX.utils.json_to_sheet([{ID_Tache:2, Auteur:'Alex', Date:new Date(), Commentaire:'Premier jet envoyé pour relecture.'}]);
   XLSX.utils.book_append_sheet(wb, wsT, 'Taches');
@@ -61,8 +64,11 @@ document.getElementById('btnExport').addEventListener('click', ()=>{
     const isParent = hasChildren(t.id);
     const eff = isParent ? getEffectiveRange(t.id) : {start:t.start, end:t.end};
     const prog = isParent ? displayProgressFlat(t.id) : t.progress;
+    const baselineEnd = isParent ? getEffectiveDateField(t.id,'baselineEnd') : t.baselineEnd;
+    const actualEnd = isParent ? getEffectiveDateField(t.id,'actualEnd') : t.actualEnd;
     return {
       ID:t.id, ParentID:t.parentId||'', Nom:t.name, DateDebut:eff.start, DateFin:eff.end,
+      DateFinInitiale: baselineEnd, DateFinReelle: actualEnd,
       Avancement:prog, Responsable:t.owner, Statut:computeStatus({start:eff.start,end:eff.end,progress:prog}),
       Couleur:t.color, Jalon:t.milestone?1:0, Predecesseurs:(t.deps||[]).join(',')
     };

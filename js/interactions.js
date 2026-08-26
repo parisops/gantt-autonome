@@ -1,9 +1,10 @@
-/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips */
+/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips, reglages d'affichage */
 
 document.getElementById('btnAddTask').addEventListener('click', ()=>{
   const id = uid();
   const today = new Date(); today.setHours(0,0,0,0);
-  tasks.push({id, parentId:null, name:'Nouvelle tâche', start:today, end:addDays(today,5), progress:0, owner:'', color:'#579bfc', milestone:false, deps:[]});
+  const end = addDays(today,5);
+  tasks.push({id, parentId:null, name:'Nouvelle tâche', start:today, end, baselineEnd:new Date(end), actualEnd:null, progress:0, owner:'', color:'#579bfc', milestone:false, deps:[]});
   pushHistory(); render(); openTaskModal(id);
 });
 
@@ -21,6 +22,25 @@ document.getElementById('btnGoToday').addEventListener('click', ()=>{
   const minDate = addDays(new Date(Math.min(...allDates)), -3);
   gs.scrollLeft = Math.max(dayDiff(minDate,new Date())*dayWidth - 200, 0);
 });
+
+/* ---------- PANNEAU DE REGLAGES D'AFFICHAGE ---------- */
+const btnSettings = document.getElementById('btnSettings');
+const settingsPanel = document.getElementById('settingsPanel');
+const chkHideWeekends = document.getElementById('chkHideWeekends');
+const chkHideNames = document.getElementById('chkHideNames');
+const chkHideBarLabels = document.getElementById('chkHideBarLabels');
+
+chkHideWeekends.checked = hideWeekends;
+chkHideNames.checked = hideTreeNames;
+chkHideBarLabels.checked = hideBarLabels;
+
+btnSettings.addEventListener('click', e=>{ e.stopPropagation(); settingsPanel.classList.toggle('open'); });
+document.addEventListener('click', e=>{
+  if(!settingsPanel.contains(e.target) && e.target!==btnSettings){ settingsPanel.classList.remove('open'); }
+});
+chkHideWeekends.addEventListener('change', e=>{ hideWeekends = e.target.checked; saveDisplaySettings(); render(); });
+chkHideNames.addEventListener('change', e=>{ hideTreeNames = e.target.checked; saveDisplaySettings(); render(); });
+chkHideBarLabels.addEventListener('change', e=>{ hideBarLabels = e.target.checked; saveDisplaySettings(); render(); });
 
 /* ---------- INFOBULLE GLOBALE (portail) ---------- */
 function showGlobalTooltip(target, html){
@@ -58,7 +78,9 @@ function attachRowEvents(dayWidth, minDate){
       const parentId = Number(el.dataset.id);
       const parent = tasks.find(x=>x.id===parentId);
       const id = uid();
-      tasks.push({id, parentId, name:'Nouvelle sous-tâche', start:new Date(parent.start||new Date()), end:addDays(new Date(parent.start||new Date()),3), progress:0, owner:parent.owner, color:parent.color, milestone:false, deps:[]});
+      const start = new Date(parent.start||new Date());
+      const end = addDays(start,3);
+      tasks.push({id, parentId, name:'Nouvelle sous-tâche', start, end, baselineEnd:new Date(end), actualEnd:null, progress:0, owner:parent.owner, color:parent.color, milestone:false, deps:[]});
       collapsed.delete(parentId);
       pushHistory(); render(); openTaskModal(id);
     });
@@ -131,7 +153,10 @@ function duplicateTask(id){
   toClone.forEach(orig=>{
     tasks.push({...orig, id: idMap[orig.id], name: orig.id===id? orig.name+' (copie)': orig.name,
       parentId: orig.parentId && idMap[orig.parentId] ? idMap[orig.parentId] : (orig.id===id? orig.parentId : orig.parentId),
-      start:new Date(orig.start), end:new Date(orig.end), deps:[...(orig.deps||[])]});
+      start:new Date(orig.start), end:new Date(orig.end),
+      baselineEnd: orig.baselineEnd? new Date(orig.baselineEnd) : new Date(orig.end),
+      actualEnd: orig.actualEnd? new Date(orig.actualEnd) : null,
+      deps:[...(orig.deps||[])]});
   });
   pushHistory(); render();
   showToast('Tâche dupliquée');
