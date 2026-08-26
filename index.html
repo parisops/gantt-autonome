@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt Autonome — Suivi de tâches</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -19,6 +22,14 @@
     <button id="btnUndo" class="btn-icon" title="Annuler (Ctrl+Z)">↩️</button>
     <button id="btnRedo" class="btn-icon" title="Rétablir (Ctrl+Y)">↪️</button>
     <button id="btnPrint" class="btn-ghost" title="Imprimer / PDF">🖨️ Imprimer</button>
+    <div class="settings-wrap">
+      <button id="btnSettings" class="btn-ghost">⚙️ Affichage</button>
+      <div class="settings-panel" id="settingsPanel">
+        <label><input type="checkbox" id="chkHideWeekends"> Masquer les weekends</label>
+        <label><input type="checkbox" id="chkHideNames"> Masquer les noms dans l'arbo</label>
+        <label><input type="checkbox" id="chkHideBarLabels"> Masquer les titres dans la timeline</label>
+      </div>
+    </div>
     <select id="zoomSelect">
       <option value="day">Jour</option>
       <option value="week" selected>Semaine</option>
@@ -47,9 +58,10 @@
   <div class="item"><span class="sw" style="background:var(--green)"></span> Terminé</div>
   <div class="item"><span class="sw" style="background:var(--red)"></span> En retard</div>
   <div class="item">◆ Jalon</div>
-  <div class="item">⊏⊐ Phase (agrégat des sous-tâches)</div>
+  <div class="item">⊏⊐ Phase (agrégat)</div>
   <div class="item">→ Dépendance</div>
   <div class="item">🟠 Commentaire (survol)</div>
+  <div class="item">🟥 Rayures = dépassement de l'échéance initiale</div>
 </div>
 
 <div id="mainContainer">
@@ -68,8 +80,16 @@
     <div class="field"><label>Tâche parente</label><select id="m_parent"></select></div>
     <div class="field-row">
       <div class="field"><label>Date début</label><input type="date" id="m_start"></div>
-      <div class="field"><label>Date fin</label><input type="date" id="m_end"></div>
+      <div class="field"><label>Date fin actuelle</label><input type="date" id="m_end"></div>
     </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Date fin initiale (baseline)</label>
+        <input type="date" id="m_baseline" disabled>
+      </div>
+      <div class="field"><label>Date fin réelle (constatée)</label><input type="date" id="m_actual"></div>
+    </div>
+    <button type="button" class="btn-ghost" id="m_reset_baseline" style="font-size:11.5px;padding:5px 9px;margin:-6px 0 10px;">↺ Réinitialiser la baseline sur la date de fin actuelle</button>
     <p class="auto-note" id="m_auto_note" style="display:none;">Cette tâche a des sous-tâches : ses dates et son avancement sont calculés automatiquement à partir d'elles (dates min/max, moyenne d'avancement). Éditez les sous-tâches pour les modifier.</p>
     <div class="field"><label>Jalon (durée nulle, affiché en losange)</label><select id="m_milestone"><option value="0">Non</option><option value="1">Oui</option></select></div>
     <div class="field-row">
@@ -77,15 +97,9 @@
       <div class="field"><label>Responsable</label><input type="text" id="m_owner"></div>
     </div>
     <div class="field"><label>Dépendances (ID des tâches précédentes, séparés par virgule)</label><input type="text" id="m_deps" placeholder="ex: 2,3"></div>
-    <div class="field"><label>Couleur</label>
-      <select id="m_color">
-        <option value="#579bfc">Bleu</option>
-        <option value="#00c875">Vert</option>
-        <option value="#fdab3d">Orange</option>
-        <option value="#e2445c">Rouge</option>
-        <option value="#a25ddc">Violet</option>
-        <option value="#037f4c">Vert foncé</option>
-      </select>
+    <div class="field">
+      <label>Couleur</label>
+      <div class="color-palette" id="m_color_palette"></div>
     </div>
     <div class="modal-actions">
       <button class="btn-ghost" id="m_duplicate">⎘ Dupliquer</button>
