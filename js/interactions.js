@@ -24,26 +24,38 @@ document.getElementById('btnGoToday').addEventListener('click', ()=>{
 });
 
 /* ---------- PANNEAU DE REGLAGES D'AFFICHAGE ---------- */
-const btnSettings = document.getElementById('btnSettings');
-const settingsPanel = document.getElementById('settingsPanel');
-const chkHideWeekends = document.getElementById('chkHideWeekends');
-const chkHideNames = document.getElementById('chkHideNames');
-const chkHideBarLabels = document.getElementById('chkHideBarLabels');
-const chkCriticalPath = document.getElementById('chkCriticalPath');
+/* Chaque element est verifie avant usage : si l'un d'eux manque (ex: cache navigateur
+   servant un ancien index.html), on ne casse pas le reste du script pour autant. */
+function safeById(id){ return document.getElementById(id); }
+const btnSettings = safeById('btnSettings');
+const settingsPanel = safeById('settingsPanel');
+const chkHideWeekends = safeById('chkHideWeekends');
+const chkHideNames = safeById('chkHideNames');
+const chkHideBarLabels = safeById('chkHideBarLabels');
+const chkCriticalPath = safeById('chkCriticalPath');
 
-chkHideWeekends.checked = hideWeekends;
-chkHideNames.checked = hideTreeNames;
-chkHideBarLabels.checked = hideBarLabels;
-chkCriticalPath.checked = showCriticalPath;
+if(chkHideWeekends) chkHideWeekends.checked = hideWeekends;
+if(chkHideNames) chkHideNames.checked = hideTreeNames;
+if(chkHideBarLabels) chkHideBarLabels.checked = hideBarLabels;
+if(chkCriticalPath) chkCriticalPath.checked = showCriticalPath;
 
-btnSettings.addEventListener('click', e=>{ e.stopPropagation(); settingsPanel.classList.toggle('open'); });
-document.addEventListener('click', e=>{
-  if(!settingsPanel.contains(e.target) && e.target!==btnSettings){ settingsPanel.classList.remove('open'); }
+if(btnSettings && settingsPanel){
+  btnSettings.addEventListener('click', e=>{ e.stopPropagation(); settingsPanel.classList.toggle('open'); });
+  document.addEventListener('click', e=>{
+    if(!settingsPanel.contains(e.target) && e.target!==btnSettings){ settingsPanel.classList.remove('open'); }
+  });
+}
+if(chkHideWeekends) chkHideWeekends.addEventListener('change', e=>{ hideWeekends = e.target.checked; saveDisplaySettings(); render(); });
+if(chkHideNames) chkHideNames.addEventListener('change', e=>{ hideTreeNames = e.target.checked; saveDisplaySettings(); render(); });
+if(chkHideBarLabels) chkHideBarLabels.addEventListener('change', e=>{ hideBarLabels = e.target.checked; saveDisplaySettings(); render(); });
+if(chkCriticalPath) chkCriticalPath.addEventListener('change', e=>{
+  if(typeof computeCriticalPath !== 'function'){
+    showToast("Le module chemin critique n'est pas chargé — fais un rechargement forcé (Ctrl+Maj+R).");
+    e.target.checked = false;
+    return;
+  }
+  showCriticalPath = e.target.checked; saveDisplaySettings(); render();
 });
-chkHideWeekends.addEventListener('change', e=>{ hideWeekends = e.target.checked; saveDisplaySettings(); render(); });
-chkHideNames.addEventListener('change', e=>{ hideTreeNames = e.target.checked; saveDisplaySettings(); render(); });
-chkHideBarLabels.addEventListener('change', e=>{ hideBarLabels = e.target.checked; saveDisplaySettings(); render(); });
-chkCriticalPath.addEventListener('change', e=>{ showCriticalPath = e.target.checked; saveDisplaySettings(); render(); });
 
 /* ---------- INFOBULLE GLOBALE (portail) ---------- */
 function showGlobalTooltip(target, html){

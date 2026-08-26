@@ -16,11 +16,25 @@ function render(){
   if(tasks.length===0){
     container.innerHTML = '<div class="empty-state"><div class="drop-zone" id="dropZone"><h2>Aucune donnée chargée</h2><p>Importez votre fichier Excel, téléchargez le modèle, ou créez une nouvelle tâche.</p></div></div>';
     setupDropZone();
-    cpInfo.style.display = 'none';
+    if(cpInfo) cpInfo.style.display = 'none';
     return;
   }
 
-  const cp = showCriticalPath ? computeCriticalPath() : null;
+  let cp = null;
+  if(showCriticalPath){
+    try{
+      if(typeof computeCriticalPath === 'function'){
+        cp = computeCriticalPath();
+      } else {
+        console.error('computeCriticalPath indisponible — js/critical-path.js ne semble pas chargé.');
+        showToast("Chemin critique indisponible (fichier non chargé) — recharge la page (Ctrl+Maj+R).");
+      }
+    }catch(err){
+      console.error('Erreur lors du calcul du chemin critique :', err);
+      showToast('Erreur lors du calcul du chemin critique (voir console).');
+      cp = null;
+    }
+  }
   if(cp && cpInfo){
     cpInfo.style.display = 'inline-block';
     cpInfo.textContent = `🎯 Chemin critique : ${cp.totalDays} j · ${cp.count} tâche(s)`;
