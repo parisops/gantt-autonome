@@ -20,6 +20,10 @@ let hideWeekends = false;
 let hideTreeNames = false;
 let hideBarLabels = false;
 let showCriticalPath = false;
+let hoursPerDay = 8;
+let myName = '';
+let navCollapsed = false;
+let currentView = 'timeline';
 
 const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
 const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
@@ -58,6 +62,12 @@ function getContrastTextColor(hex){
   const lin = c => c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4);
   const L = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);
   return L > 0.52 ? '#1c1e22' : '#ffffff';
+}
+
+/* Calcule un nombre de jours calendaires a partir d'une duree en heures et du nombre d'heures de travail/jour */
+function hoursToDays(hours){
+  if(!hours || hours<=0) return 1;
+  return Math.max(1, Math.ceil(hours / (hoursPerDay || 8)));
 }
 
 function computeStatus(t){
@@ -187,7 +197,13 @@ function loadLocal(){
   }
   return false;
 }
-function saveDisplaySettings(){ try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath})); }catch(e){} }
+function saveDisplaySettings(){
+  try{
+    localStorage.setItem('ganttDisplaySettings', JSON.stringify({
+      hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, hoursPerDay, myName, navCollapsed
+    }));
+  }catch(e){}
+}
 function loadDisplaySettings(){
   try{
     const raw = localStorage.getItem('ganttDisplaySettings');
@@ -197,6 +213,9 @@ function loadDisplaySettings(){
     hideTreeNames = !!d.hideTreeNames;
     hideBarLabels = !!d.hideBarLabels;
     showCriticalPath = !!d.showCriticalPath;
+    hoursPerDay = d.hoursPerDay || 8;
+    myName = d.myName || '';
+    navCollapsed = !!d.navCollapsed;
   }catch(e){}
 }
 
