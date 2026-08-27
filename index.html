@@ -13,11 +13,13 @@
 <body>
 
 <div class="topbar">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <button id="btnToggleSidebar" class="btn-icon" title="Afficher/masquer le panneau">☰</button>
-    <h1><span class="dot"></span> Gantt Autonome</h1>
-  </div>
+  <h1><span class="dot"></span> Gantt Autonome</h1>
   <div class="toolbar">
+    <div class="view-switch">
+      <button class="view-btn active" data-view="gantt">🗓️ Gantt</button>
+      <button class="view-btn" data-view="table">📋 Table</button>
+      <button class="view-btn" data-view="workload">👥 Charge</button>
+    </div>
     <label class="btn" for="fileInput">📂 Importer Excel</label>
     <input type="file" id="fileInput" accept=".xlsx,.xls">
     <button id="btnTemplate" class="btn-ghost">⬇️ Modèle vierge</button>
@@ -25,82 +27,56 @@
     <button id="btnUndo" class="btn-icon" title="Annuler (Ctrl+Z)">↩️</button>
     <button id="btnRedo" class="btn-icon" title="Rétablir (Ctrl+Y)">↪️</button>
     <button id="btnPrint" class="btn-ghost" title="Imprimer / PDF">🖨️ Imprimer</button>
+    <div class="settings-wrap">
+      <button id="btnSettings" class="btn-ghost">⚙️ Affichage</button>
+      <div class="settings-panel" id="settingsPanel">
+        <label><input type="checkbox" id="chkHideWeekends"> Masquer les weekends</label>
+        <label><input type="checkbox" id="chkHideNames"> Masquer les noms dans l'arbo</label>
+        <label><input type="checkbox" id="chkHideBarLabels"> Masquer les titres dans la timeline</label>
+        <label><input type="checkbox" id="chkCriticalPath"> 🎯 Afficher le chemin critique</label>
+      </div>
+    </div>
+    <span id="cpInfo" class="cp-info" style="display:none;"></span>
+    <select id="zoomSelect">
+      <option value="day">Jour</option>
+      <option value="week" selected>Semaine</option>
+      <option value="month">Mois</option>
+    </select>
     <button id="btnExport" class="btn-primary">💾 Exporter Excel</button>
   </div>
 </div>
+<div class="filterbar">
+  <input type="text" id="searchInput" placeholder="🔍 Rechercher une tâche ou un responsable...">
+  <select id="filterStatus">
+    <option value="">Tous les statuts</option>
+    <option value="À venir">À venir</option>
+    <option value="En cours">En cours</option>
+    <option value="Terminé">Terminé</option>
+    <option value="En retard">En retard</option>
+  </select>
+  <select id="filterOwner"><option value="">Tous les responsables</option></select>
+  <button id="btnExpandAll" class="btn-ghost">⤢ Tout déplier</button>
+  <button id="btnCollapseAll" class="btn-ghost">⤡ Tout replier</button>
+  <button id="btnGoToday" class="btn-ghost">📍 Aujourd'hui</button>
+</div>
+<div class="legend" id="legend">
+  <div class="item"><span class="sw" style="background:var(--gray)"></span> À venir</div>
+  <div class="item"><span class="sw" style="background:var(--blue)"></span> En cours</div>
+  <div class="item"><span class="sw" style="background:var(--green)"></span> Terminé</div>
+  <div class="item"><span class="sw" style="background:var(--red)"></span> En retard</div>
+  <div class="item">◆ Jalon</div>
+  <div class="item">⊏⊐ Phase (agrégat)</div>
+  <div class="item">→ Dépendance</div>
+  <div class="item">🟠 Commentaire (survol)</div>
+  <div class="item">🟧 Rayures orange = dépassement échéance initiale</div>
+  <div class="item">🎯 Anneau rouge = chemin critique</div>
+</div>
 
-<div class="content-row">
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">Navigation</div>
-    <nav class="sidebar-nav">
-      <div class="nav-item active" data-view="timeline">🗓️ Timeline</div>
-      <div class="nav-item disabled" title="Bientôt disponible">📋 Mes tâches</div>
-      <div class="nav-item disabled" title="Bientôt disponible">👥 Charge par personne</div>
-      <div class="nav-item disabled" title="Bientôt disponible">📊 Tableau de bord</div>
-    </nav>
-
-    <div class="sidebar-section">
-      <h3>Affichage</h3>
-      <label><input type="checkbox" id="chkHideWeekends"> Masquer les weekends</label>
-      <label><input type="checkbox" id="chkHideNames"> Masquer les noms dans l'arbo</label>
-      <label><input type="checkbox" id="chkHideBarLabels"> Masquer les titres dans la timeline</label>
-      <label><input type="checkbox" id="chkCriticalPath"> 🎯 Chemin critique</label>
-    </div>
-
-    <div class="sidebar-section">
-      <h3>Temps de travail</h3>
-      <div class="num-field">
-        <label for="inpHoursPerDay">Heures / jour</label>
-        <input type="number" id="inpHoursPerDay" min="1" max="24" step="0.5">
-      </div>
-      <p class="hint">Utilisé pour calculer une date de fin initiale à partir d'un effort en heures, dans la fiche de tâche.</p>
-    </div>
-
-    <div class="sidebar-section cp-info-wrap">
-      <span id="cpInfo" class="cp-info" style="display:none;"></span>
-    </div>
-  </aside>
-
-  <div class="main-col">
-    <div class="filterbar">
-      <input type="text" id="searchInput" placeholder="🔍 Rechercher une tâche ou un responsable...">
-      <select id="filterStatus">
-        <option value="">Tous les statuts</option>
-        <option value="À venir">À venir</option>
-        <option value="En cours">En cours</option>
-        <option value="Terminé">Terminé</option>
-        <option value="En retard">En retard</option>
-      </select>
-      <select id="filterOwner"><option value="">Tous les responsables</option></select>
-      <button id="btnExpandAll" class="btn-ghost">⤢ Tout déplier</button>
-      <button id="btnCollapseAll" class="btn-ghost">⤡ Tout replier</button>
-      <button id="btnGoToday" class="btn-ghost">📍 Aujourd'hui</button>
-      <select id="zoomSelect">
-        <option value="day">Jour</option>
-        <option value="week" selected>Semaine</option>
-        <option value="month">Mois</option>
-      </select>
-    </div>
-    <div class="legend" id="legend">
-      <div class="item"><span class="sw" style="background:var(--gray)"></span> À venir</div>
-      <div class="item"><span class="sw" style="background:var(--blue)"></span> En cours</div>
-      <div class="item"><span class="sw" style="background:var(--green)"></span> Terminé</div>
-      <div class="item"><span class="sw" style="background:var(--red)"></span> En retard</div>
-      <div class="item">◆ Jalon</div>
-      <div class="item">⊢——⊣ Phase (bornes début/fin)</div>
-      <div class="item">→ Dépendance</div>
-      <div class="item">🟠 Commentaire (survol)</div>
-      <div class="item">🟧 Rayures = dépassement échéance initiale</div>
-      <div class="item">🎯 Anneau rouge = chemin critique</div>
-    </div>
-
-    <div id="mainContainer">
-      <div class="empty-state" id="emptyState">
-        <div class="drop-zone" id="dropZone">
-          <h2>Aucune donnée chargée</h2>
-          <p>Importez votre fichier Excel (.xlsx) contenant les onglets <b>Taches</b> et <b>Commentaires</b>, téléchargez le modèle vierge, ou créez une nouvelle tâche.</p>
-        </div>
-      </div>
+<div id="mainContainer">
+  <div class="empty-state" id="emptyState">
+    <div class="drop-zone" id="dropZone">
+      <h2>Aucune donnée chargée</h2>
+      <p>Importez votre fichier Excel (.xlsx) contenant les onglets <b>Taches</b> et <b>Commentaires</b>, téléchargez le modèle vierge, ou créez une nouvelle tâche.</p>
     </div>
   </div>
 </div>
@@ -113,12 +89,6 @@
     <div class="field-row">
       <div class="field"><label>Date début</label><input type="date" id="m_start"></div>
       <div class="field"><label>Date fin actuelle</label><input type="date" id="m_end"></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>Effort estimé (heures)</label><input type="number" id="m_effort" min="0" step="0.5" placeholder="ex: 24"></div>
-      <div class="field" style="display:flex;align-items:flex-end;">
-        <button type="button" class="btn-ghost" id="m_calc_from_effort" style="width:100%;font-size:11.5px;">🧮 Calculer la date de fin</button>
-      </div>
     </div>
     <div class="field-row">
       <div class="field">
@@ -167,6 +137,7 @@
 
 <script src="js/data.js?v=7"></script>
 <script src="js/critical-path.js?v=7"></script>
+<script src="js/views.js?v=7"></script>
 <script src="js/excel-io.js?v=7"></script>
 <script src="js/render.js?v=7"></script>
 <script src="js/interactions.js?v=7"></script>
