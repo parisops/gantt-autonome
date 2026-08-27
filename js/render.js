@@ -48,6 +48,22 @@ function render(){
   renderGanttView(container, cpInfo);
 }
 
+/* Mesure la largeur reellement disponible pour la timeline, avec plusieurs filets de securite
+   au cas ou #mainContainer renverrait 0 (mise en page pas encore stabilisee) */
+function getAvailableWidth(container){
+  let w = container.clientWidth;
+  if(!w){
+    const appMain = document.querySelector('.app-main');
+    if(appMain && appMain.clientWidth) w = appMain.clientWidth;
+  }
+  if(!w){
+    const sidebar = document.getElementById('sidebar');
+    const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
+    w = window.innerWidth - sidebarW;
+  }
+  return w || 1200;
+}
+
 /* ---------- VUE GANTT ---------- */
 function renderGanttView(container, cpInfo){
   let cp = null;
@@ -101,7 +117,7 @@ function renderGanttView(container, cpInfo){
   /* La timeline s'etire pour occuper toute la largeur disponible, quel que soit le zoom choisi ;
      en dessous d'une certaine largeur de colonne (minDayWidth), elle redevient scrollable plutot que de s'ecraser. */
   const minDayWidth = zoom==='day'?36:zoom==='week'?14:5;
-  const containerWidth = container.clientWidth || window.innerWidth || 1200;
+  const containerWidth = getAvailableWidth(container);
   const availableForTimeline = Math.max(containerWidth - leftPanelWidth, 200);
   const dayWidth = Math.max(minDayWidth, availableForTimeline / totalVisibleDays);
 
@@ -303,9 +319,15 @@ function getWeekNumber(d){
   return 1+Math.round(((date-week1)/86400000-3+(week1.getDay()+6)%7)/7);
 }
 
-/* Recalcule la mise en page (utile quand la fenetre change de taille, la timeline doit rester pleine largeur) */
+/* Recalcule la mise en page quand la fenetre change de taille */
 let _resizeTimer = null;
 window.addEventListener('resize', ()=>{
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(()=>{ if(tasks.length) render(); }, 150);
+});
+
+/* Filet de securite : recalcule une fois tout charge (polices, CSS) au cas ou
+   la premiere mesure de largeur aurait ete prise avant que la mise en page soit stable */
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{ if(tasks.length && currentView==='gantt') render(); }, 100);
 });
