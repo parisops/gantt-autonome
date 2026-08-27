@@ -21,9 +21,7 @@ let hideTreeNames = false;
 let hideBarLabels = false;
 let showCriticalPath = false;
 let hoursPerDay = 8;
-let myName = '';
-let navCollapsed = false;
-let currentView = 'timeline';
+let sidebarCollapsed = false;
 
 const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
 const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
@@ -64,10 +62,21 @@ function getContrastTextColor(hex){
   return L > 0.52 ? '#1c1e22' : '#ffffff';
 }
 
-/* Calcule un nombre de jours calendaires a partir d'une duree en heures et du nombre d'heures de travail/jour */
-function hoursToDays(hours){
-  if(!hours || hours<=0) return 1;
-  return Math.max(1, Math.ceil(hours / (hoursPerDay || 8)));
+/* ---------- TEMPS DE TRAVAIL : calcul d'une date de fin a partir d'un effort en heures ---------- */
+function addWorkingDays(start, workDaysToAdd){
+  let d = new Date(start);
+  let added = 0;
+  while(added < workDaysToAdd){
+    d = addDays(d,1);
+    const isWeekend = d.getDay()===0 || d.getDay()===6;
+    if(!isWeekend) added++;
+  }
+  return d;
+}
+function computeEndFromEffort(start, hours, perDay){
+  const hpd = perDay || hoursPerDay || 8;
+  const days = Math.max(1, Math.ceil(hours/hpd));
+  return addWorkingDays(start, days-1);
 }
 
 function computeStatus(t){
@@ -200,7 +209,7 @@ function loadLocal(){
 function saveDisplaySettings(){
   try{
     localStorage.setItem('ganttDisplaySettings', JSON.stringify({
-      hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, hoursPerDay, myName, navCollapsed
+      hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, hoursPerDay, sidebarCollapsed
     }));
   }catch(e){}
 }
@@ -214,8 +223,7 @@ function loadDisplaySettings(){
     hideBarLabels = !!d.hideBarLabels;
     showCriticalPath = !!d.showCriticalPath;
     hoursPerDay = d.hoursPerDay || 8;
-    myName = d.myName || '';
-    navCollapsed = !!d.navCollapsed;
+    sidebarCollapsed = !!d.sidebarCollapsed;
   }catch(e){}
 }
 

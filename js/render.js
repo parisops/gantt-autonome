@@ -189,7 +189,12 @@ function render(){
     if(t.milestone){
       timelineCellInner = `<div class="milestone ${isCritical?'critical':''}" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}${isCritical?' (chemin critique)':''}"></div>`;
     } else if(isParent){
-      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}%">${overrunHtml}</div>`;
+      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}% · du ${fmt(eff.start)} au ${fmt(eff.end)}">
+          <span class="cap cap-left"></span>
+          <span class="cap cap-right"></span>
+          <div class="bar-progress" style="width:${prog}%;"></div>
+          ${overrunHtml}
+        </div>`;
     } else {
       const critClass = isCritical ? 'critical' : (isConflict ? 'conflict' : '');
       const critTitle = isCritical ? ' [Chemin critique : aucune marge]' : (isConflict ? ' [Conflit : commence avant la fin d\'une dépendance]' : '');
