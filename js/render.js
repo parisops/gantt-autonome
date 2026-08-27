@@ -35,7 +35,7 @@ function render(){
   const owners = [...new Set(tasks.map(t=>t.owner).filter(Boolean))];
   ownerSel.innerHTML = '<option value="">Tous les responsables</option>' + owners.map(o=>`<option value="${escapeHtml(o)}" ${filterOwner===o?'selected':''}>${escapeHtml(o)}</option>`).join('');
 
-  document.querySelectorAll('.view-btn').forEach(b=> b.classList.toggle('active', b.dataset.view===currentView));
+  document.querySelectorAll('.nav-item').forEach(b=> b.classList.toggle('active', b.dataset.view===currentView));
   const zoomSelect = document.getElementById('zoomSelect');
   const isGanttView = currentView==='gantt';
   if(zoomSelect) zoomSelect.style.display = isGanttView ? '' : 'none';
@@ -82,8 +82,6 @@ function renderGanttView(container, cpInfo){
   }
   roots.forEach(walk);
 
-  const dayWidth = zoom==='day'?36:zoom==='week'?14:5;
-
   const parentIds = new Set(tasks.filter(t=>t.parentId).map(t=>t.parentId));
   const leafDates = tasks.filter(t=>!parentIds.has(t.id) && t.start && t.end).flatMap(t=>[t.start,t.end]);
   const allDates = leafDates.length ? leafDates : tasks.filter(t=>t.start&&t.end).flatMap(t=>[t.start,t.end]);
@@ -91,16 +89,26 @@ function renderGanttView(container, cpInfo){
   const maxDate = addDays(new Date(Math.max(...allDates)), 12);
   const totalDays = Math.max(dayDiff(minDate,maxDate),30);
 
-  const visibleCum = [0];
+  /* Nombre de jours visibles (sans les weekends si masques), independant de la largeur de colonne */
+  const visibleCumDays = [0];
   for(let i=0;i<totalDays;i++){
     const d = addDays(minDate,i);
     const isWeekend = d.getDay()===0 || d.getDay()===6;
-    visibleCum.push(visibleCum[i] + ((hideWeekends && isWeekend) ? 0 : 1));
+    visibleCumDays.push(visibleCumDays[i] + ((hideWeekends && isWeekend) ? 0 : 1));
   }
-  function xForIndex(i){ const idx = Math.max(0, Math.min(totalDays, i)); return visibleCum[idx]*dayWidth; }
+  const totalVisibleDays = Math.max(visibleCumDays[totalDays], 1);
+
+  /* La timeline s'etire pour occuper toute la largeur disponible, quel que soit le zoom choisi ;
+     en dessous d'une certaine largeur de colonne (minDayWidth), elle redevient scrollable plutot que de s'ecraser. */
+  const minDayWidth = zoom==='day'?36:zoom==='week'?14:5;
+  const containerWidth = container.clientWidth || window.innerWidth || 1200;
+  const availableForTimeline = Math.max(containerWidth - leftPanelWidth, 200);
+  const dayWidth = Math.max(minDayWidth, availableForTimeline / totalVisibleDays);
+
+  function xForIndex(i){ const idx = Math.max(0, Math.min(totalDays, i)); return visibleCumDays[idx]*dayWidth; }
   function xForDate(d){ if(!d) return 0; return xForIndex(dayDiff(minDate, d)); }
 
-  const totalWidth = visibleCum[totalDays]*dayWidth;
+  const totalWidth = visibleCumDays[totalDays]*dayWidth;
   const rowsHeight = flat.length*34;
   const fullWidth = leftPanelWidth + totalWidth;
   const fullHeight = 34 + rowsHeight;
@@ -294,3 +302,10 @@ function getWeekNumber(d){
   const week1 = new Date(date.getFullYear(),0,4);
   return 1+Math.round(((date-week1)/86400000-3+(week1.getDay()+6)%7)/7);
 }
+
+/* Recalcule la mise en page (utile quand la fenetre change de taille, la timeline doit rester pleine largeur) */
+let _resizeTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(()=>{ if(tasks.length) render(); }, 150);
+});

@@ -20,6 +20,7 @@ let hideWeekends = false;
 let hideTreeNames = false;
 let hideBarLabels = false;
 let showCriticalPath = false;
+let sidebarCollapsed = false;
 
 let currentView = 'gantt';
 let tableSortField = null;
@@ -191,7 +192,7 @@ function loadLocal(){
   }
   return false;
 }
-function saveDisplaySettings(){ try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, currentView})); }catch(e){} }
+function saveDisplaySettings(){ try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, currentView, sidebarCollapsed})); }catch(e){} }
 function loadDisplaySettings(){
   try{
     const raw = localStorage.getItem('ganttDisplaySettings');
@@ -202,6 +203,7 @@ function loadDisplaySettings(){
     hideBarLabels = !!d.hideBarLabels;
     showCriticalPath = !!d.showCriticalPath;
     currentView = d.currentView || 'gantt';
+    sidebarCollapsed = !!d.sidebarCollapsed;
   }catch(e){}
 }
 

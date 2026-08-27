@@ -1,4 +1,4 @@
-/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips, reglages d'affichage, bascule de vues */
+/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips, reglages d'affichage, navigation laterale */
 
 document.getElementById('btnAddTask').addEventListener('click', ()=>{
   const id = uid();
@@ -23,11 +23,30 @@ document.getElementById('btnGoToday').addEventListener('click', ()=>{
   gs.scrollLeft = Math.max(dayDiff(minDate,new Date())*dayWidth - 200, 0);
 });
 
-/* ---------- BASCULE DE VUES (Gantt / Table / Charge) ---------- */
-document.querySelectorAll('.view-btn').forEach(btn=>{
+/* ---------- NAVIGATION LATERALE (sidebar) ---------- */
+function applySidebarState(){
+  const sidebar = document.getElementById('sidebar');
+  const expandBtn = document.getElementById('btnExpandSidebar');
+  if(sidebar) sidebar.classList.toggle('collapsed', sidebarCollapsed);
+  if(expandBtn) expandBtn.style.display = sidebarCollapsed ? '' : 'none';
+}
+applySidebarState();
+
+const btnCollapseSidebar = document.getElementById('btnCollapseSidebar');
+const btnExpandSidebar = document.getElementById('btnExpandSidebar');
+if(btnCollapseSidebar) btnCollapseSidebar.addEventListener('click', ()=>{
+  sidebarCollapsed = true; applySidebarState(); saveDisplaySettings();
+  setTimeout(()=>{ if(tasks.length) render(); }, 200);
+});
+if(btnExpandSidebar) btnExpandSidebar.addEventListener('click', ()=>{
+  sidebarCollapsed = false; applySidebarState(); saveDisplaySettings();
+  setTimeout(()=>{ if(tasks.length) render(); }, 200);
+});
+
+document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     currentView = btn.dataset.view;
-    document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('active', b===btn));
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b===btn));
     saveDisplaySettings();
     render();
   });
