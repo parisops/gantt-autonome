@@ -1,4 +1,4 @@
-/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips, reglages d'affichage */
+/* interactions.js — Boutons de la barre d'outils, filtres, drag & resize des barres, duplication, tooltips, reglages d'affichage, bascule de vues */
 
 document.getElementById('btnAddTask').addEventListener('click', ()=>{
   const id = uid();
@@ -23,9 +23,17 @@ document.getElementById('btnGoToday').addEventListener('click', ()=>{
   gs.scrollLeft = Math.max(dayDiff(minDate,new Date())*dayWidth - 200, 0);
 });
 
+/* ---------- BASCULE DE VUES (Gantt / Table / Charge) ---------- */
+document.querySelectorAll('.view-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    currentView = btn.dataset.view;
+    document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('active', b===btn));
+    saveDisplaySettings();
+    render();
+  });
+});
+
 /* ---------- PANNEAU DE REGLAGES D'AFFICHAGE ---------- */
-/* Chaque element est verifie avant usage : si l'un d'eux manque (ex: cache navigateur
-   servant un ancien index.html), on ne casse pas le reste du script pour autant. */
 function safeById(id){ return document.getElementById(id); }
 const btnSettings = safeById('btnSettings');
 const settingsPanel = safeById('settingsPanel');
@@ -72,7 +80,7 @@ function showGlobalTooltip(target, html){
 }
 function hideGlobalTooltip(){ document.getElementById('globalTooltip').style.display = 'none'; }
 
-/* ---------- EVENEMENTS DES LIGNES ---------- */
+/* ---------- EVENEMENTS DES LIGNES (vue Gantt) ---------- */
 function attachRowEvents(dayWidth, minDate){
   document.querySelectorAll('.expand-btn').forEach(btn=>{
     btn.addEventListener('click', e=>{

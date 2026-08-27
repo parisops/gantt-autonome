@@ -1,4 +1,4 @@
-/* render.js — Construction du DOM: en-tete, arborescence figee, timeline, dependances, commentaires, baseline/overrun, chemin critique */
+/* render.js — Dispatcher de vues + construction de la vue Gantt (en-tete, arborescence, timeline, dependances, chemin critique) */
 
 function statusLabel(status){
   if(status === 'À venir') return 'En cours';
@@ -17,21 +17,39 @@ function routeDependencyPath(x1,y1,x2,y2){
   return `M${x1},${y1} L${outX},${y1} L${outX},${midY} L${inX},${midY} L${inX},${y2} L${x2},${y2}`;
 }
 
+/* ---------- DISPATCHER PRINCIPAL ---------- */
 function render(){
+  const container = document.getElementById('mainContainer');
+  const cpInfo = document.getElementById('cpInfo');
+
+  if(tasks.length===0){
+    container.innerHTML = '<div class="empty-state"><div class="drop-zone" id="dropZone"><h2>Aucune donnée chargée</h2><p>Importez votre fichier Excel, téléchargez le modèle, ou créez une nouvelle tâche.</p></div></div>';
+    setupDropZone();
+    if(cpInfo) cpInfo.style.display = 'none';
+    updateUndoRedoButtons();
+    return;
+  }
+
   updateUndoRedoButtons();
   const ownerSel = document.getElementById('filterOwner');
   const owners = [...new Set(tasks.map(t=>t.owner).filter(Boolean))];
   ownerSel.innerHTML = '<option value="">Tous les responsables</option>' + owners.map(o=>`<option value="${escapeHtml(o)}" ${filterOwner===o?'selected':''}>${escapeHtml(o)}</option>`).join('');
 
-  const container = document.getElementById('mainContainer');
-  const cpInfo = document.getElementById('cpInfo');
-  if(tasks.length===0){
-    container.innerHTML = '<div class="empty-state"><div class="drop-zone" id="dropZone"><h2>Aucune donnée chargée</h2><p>Importez votre fichier Excel, téléchargez le modèle, ou créez une nouvelle tâche.</p></div></div>';
-    setupDropZone();
-    if(cpInfo) cpInfo.style.display = 'none';
-    return;
-  }
+  document.querySelectorAll('.view-btn').forEach(b=> b.classList.toggle('active', b.dataset.view===currentView));
+  const zoomSelect = document.getElementById('zoomSelect');
+  const isGanttView = currentView==='gantt';
+  if(zoomSelect) zoomSelect.style.display = isGanttView ? '' : 'none';
+  const settingsWrap = document.querySelector('.settings-wrap');
+  if(settingsWrap) settingsWrap.style.display = isGanttView ? '' : 'none';
+  if(cpInfo && !isGanttView) cpInfo.style.display = 'none';
 
+  if(currentView==='table'){ renderTableView(container); return; }
+  if(currentView==='workload'){ renderWorkloadView(container); return; }
+  renderGanttView(container, cpInfo);
+}
+
+/* ---------- VUE GANTT ---------- */
+function renderGanttView(container, cpInfo){
   let cp = null;
   if(showCriticalPath){
     try{
@@ -73,7 +91,6 @@ function render(){
   const maxDate = addDays(new Date(Math.max(...allDates)), 12);
   const totalDays = Math.max(dayDiff(minDate,maxDate),30);
 
-  /* Table de correspondance jour -> position visible (permet de masquer les weekends sans casser les calculs) */
   const visibleCum = [0];
   for(let i=0;i<totalDays;i++){
     const d = addDays(minDate,i);
@@ -189,12 +206,7 @@ function render(){
     if(t.milestone){
       timelineCellInner = `<div class="milestone ${isCritical?'critical':''}" data-id="${t.id}" style="left:${barLeft-7}px;background:${t.color};" title="${escapeHtml(t.name)}${isCritical?' (chemin critique)':''}"></div>`;
     } else if(isParent){
-      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}% · du ${fmt(eff.start)} au ${fmt(eff.end)}">
-          <span class="cap cap-left"></span>
-          <span class="cap cap-right"></span>
-          <div class="bar-progress" style="width:${prog}%;"></div>
-          ${overrunHtml}
-        </div>`;
+      timelineCellInner = `<div class="bar bar-summary" data-id="${t.id}" style="left:${barLeft}px;width:${barWidth}px;--bar-color:${t.color};" title="${escapeHtml(t.name)} · ${prog}%">${overrunHtml}</div>`;
     } else {
       const critClass = isCritical ? 'critical' : (isConflict ? 'conflict' : '');
       const critTitle = isCritical ? ' [Chemin critique : aucune marge]' : (isConflict ? ' [Conflit : commence avant la fin d\'une dépendance]' : '');
