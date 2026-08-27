@@ -20,8 +20,10 @@ let hideWeekends = false;
 let hideTreeNames = false;
 let hideBarLabels = false;
 let showCriticalPath = false;
-let hoursPerDay = 8;
-let sidebarCollapsed = false;
+
+let currentView = 'gantt';
+let tableSortField = null;
+let tableSortDir = 'asc';
 
 const AVATAR_COLORS = ['#579bfc','#00c875','#fdab3d','#e2445c','#a25ddc','#037f4c','#ff642e','#0086c0'];
 const STATUS_COLORS = {'À venir':'#c4c4c4','En cours':'#579bfc','Terminé':'#00c875','En retard':'#e2445c'};
@@ -60,23 +62,6 @@ function getContrastTextColor(hex){
   const lin = c => c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4);
   const L = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);
   return L > 0.52 ? '#1c1e22' : '#ffffff';
-}
-
-/* ---------- TEMPS DE TRAVAIL : calcul d'une date de fin a partir d'un effort en heures ---------- */
-function addWorkingDays(start, workDaysToAdd){
-  let d = new Date(start);
-  let added = 0;
-  while(added < workDaysToAdd){
-    d = addDays(d,1);
-    const isWeekend = d.getDay()===0 || d.getDay()===6;
-    if(!isWeekend) added++;
-  }
-  return d;
-}
-function computeEndFromEffort(start, hours, perDay){
-  const hpd = perDay || hoursPerDay || 8;
-  const days = Math.max(1, Math.ceil(hours/hpd));
-  return addWorkingDays(start, days-1);
 }
 
 function computeStatus(t){
@@ -206,13 +191,7 @@ function loadLocal(){
   }
   return false;
 }
-function saveDisplaySettings(){
-  try{
-    localStorage.setItem('ganttDisplaySettings', JSON.stringify({
-      hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, hoursPerDay, sidebarCollapsed
-    }));
-  }catch(e){}
-}
+function saveDisplaySettings(){ try{ localStorage.setItem('ganttDisplaySettings', JSON.stringify({hideWeekends, hideTreeNames, hideBarLabels, showCriticalPath, currentView})); }catch(e){} }
 function loadDisplaySettings(){
   try{
     const raw = localStorage.getItem('ganttDisplaySettings');
@@ -222,8 +201,7 @@ function loadDisplaySettings(){
     hideTreeNames = !!d.hideTreeNames;
     hideBarLabels = !!d.hideBarLabels;
     showCriticalPath = !!d.showCriticalPath;
-    hoursPerDay = d.hoursPerDay || 8;
-    sidebarCollapsed = !!d.sidebarCollapsed;
+    currentView = d.currentView || 'gantt';
   }catch(e){}
 }
 
